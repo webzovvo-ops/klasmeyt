@@ -344,9 +344,18 @@ function renderSubjects() {
     const author = document.createElement("span");
     author.className = "subject-card-author";
     author.textContent = subj.author_name;
-    const time = document.createElement("span");
-    time.textContent = timeAgo(subj.updated_at || subj.created_at);
-    meta.append(author, time);
+    meta.appendChild(author);
+
+    if (subj.expires_at) {
+      const due = document.createElement("span");
+      due.className = "subject-card-due";
+      due.textContent = "Due " + new Date(subj.expires_at).toLocaleDateString("en-PH", { month: "short", day: "numeric" });
+      meta.appendChild(due);
+    } else {
+      const time = document.createElement("span");
+      time.textContent = timeAgo(subj.updated_at || subj.created_at);
+      meta.appendChild(time);
+    }
 
     card.append(name, content, meta);
     card.dataset.id = subj.id;
@@ -356,9 +365,11 @@ function renderSubjects() {
 }
 
 async function fetchSubjects() {
+  const nowIso = new Date().toISOString();
   const { data, error } = await sb
     .from("subjects")
     .select("*")
+    .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
     .order("updated_at", { ascending: false });
 
   if (error) {
@@ -376,6 +387,7 @@ function openSubjectModal(mode, subj = null) {
   $("#subjectNameInput").value = mode === "edit" ? subj.subject_name : "";
   $("#subjectContentInput").value = mode === "edit" ? subj.content : "";
   $("#subjectContentInput").style.height = "auto";
+  $("#subjectDueInput").value = mode === "edit" && subj.expires_at ? subj.expires_at.slice(0, 10) : "";
   $("#deleteSubjectBtn").hidden = mode !== "edit";
 
   $("#subjectModal").hidden = false;
@@ -395,6 +407,9 @@ async function handleSubjectSubmit(e) {
   const content = $("#subjectContentInput").value.trim();
   if (!subject_name || !content) return;
 
+  const dueRaw = $("#subjectDueInput").value; // "YYYY-MM-DD" or ""
+  const expires_at = dueRaw ? new Date(`${dueRaw}T23:59:59`).toISOString() : null;
+
   const session = getSession();
   const saveBtn = e.target.querySelector('button[type="submit"]');
   saveBtn.disabled = true;
@@ -404,12 +419,12 @@ async function handleSubjectSubmit(e) {
   if (editingSubjectId) {
     ({ error } = await sb
       .from("subjects")
-      .update({ subject_name, content })
+      .update({ subject_name, content, expires_at })
       .eq("id", editingSubjectId));
   } else {
     ({ error } = await sb
       .from("subjects")
-      .insert({ subject_name, content, author_name: session.name }));
+      .insert({ subject_name, content, author_name: session.name, expires_at }));
   }
 
   saveBtn.disabled = false;
@@ -485,8 +500,23 @@ function renderChatMessage(msg, session) {
   }
 
   const bubble = document.createElement("div");
-  bubble.className = "bubble";
-  bubble.textContent = msg.message;
+  bubble.className = "bubble" + (msg.image_url ? " has-image" : "");
+
+  if (msg.image_url) {
+    const img = document.createElement("img");
+    img.src = msg.image_url;
+    img.alt = "Shared image";
+    img.className = "bubble-image";
+    img.loading = "lazy";
+    img.addEventListener("click", () => window.open(msg.image_url, "_blank"));
+    bubble.appendChild(img);
+  }
+  if (msg.message) {
+    const text = document.createElement("div");
+    text.className = "bubble-text";
+    text.textContent = msg.message;
+    bubble.appendChild(text);
+  }
   row.appendChild(bubble);
 
   const time = document.createElement("div");
@@ -505,9 +535,11 @@ function renderAllChat(session) {
 }
 
 async function fetchChat(session) {
+  const nowIso = new Date().toISOString();
   const { data, error } = await sb
     .from("chat_messages")
     .select("*")
+    .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
     .order("created_at", { ascending: true })
     .limit(300);
 
@@ -533,21 +565,121 @@ async function sendChatMessage(session) {
   input.value = "";
   input.style.height = "auto";
 
-  const { error } = await sb.from("chat_messages").insert({
-    sender_id: session.userId,
-    sender_name: session.name,
-    message,
-  });
+  // Insert and render immediately from the returned row — don't wait for the
+  // realtime echo to come back over the socket, that's what made sending
+  // feel laggy/broken before. The realtime subscription below still exists
+  // for picking up messages from *other* people live.
+  const { data, error } = await sb
+    .from("chat_messages")
+    .insert({ sender_id: session.userId, sender_name: session.name, message })
+    .select()
+    .single();
 
   if (error) {
     console.error(error);
     showToast("Hindi naipadala ang mensahe.", "error");
+    input.value = message;
+    return;
+  }
+
+  chatCache.push(data);
+  $("#chatMessages").appendChild(renderChatMessage(data, session));
+  scrollChatToBottom();
+}
+
+/** Resize + re-encode an image client-side before upload, so a phone photo
+ *  doesn't balloon Supabase Storage usage. */
+function compressImage(file, maxDim = 1600, quality = 0.82) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          const scale = maxDim / Math.max(width, height);
+          width = Math.round(width * scale);
+          height = Math.round(height * scale);
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+        canvas.toBlob(
+          (blob) => (blob ? resolve(blob) : reject(new Error("compress failed"))),
+          "image/jpeg",
+          quality
+        );
+      };
+      img.onerror = reject;
+      img.src = reader.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function sendImageMessage(session, file) {
+  if (!file || !file.type.startsWith("image/")) return;
+  if (file.size > 15 * 1024 * 1024) {
+    showToast("Masyadong malaki ang image (max 15MB).", "error");
+    return;
+  }
+
+  const caption = $("#chatInput").value.trim();
+  $("#chatInput").value = "";
+  $("#chatInput").style.height = "auto";
+
+  const placeholder = document.createElement("div");
+  placeholder.className = "bubble-row own";
+  const pb = document.createElement("div");
+  pb.className = "bubble has-image uploading";
+  const spinner = document.createElement("div");
+  spinner.className = "upload-spinner";
+  pb.appendChild(spinner);
+  placeholder.appendChild(pb);
+  $("#chatMessages").appendChild(placeholder);
+  scrollChatToBottom();
+
+  try {
+    const blob = await compressImage(file);
+    const path = `${session.userId}/${Date.now()}-${uuid()}.jpg`;
+
+    const { error: upErr } = await sb.storage
+      .from("chat-images")
+      .upload(path, blob, { contentType: "image/jpeg", upsert: false });
+    if (upErr) throw upErr;
+
+    const { data: urlData } = sb.storage.from("chat-images").getPublicUrl(path);
+
+    const { data, error } = await sb
+      .from("chat_messages")
+      .insert({
+        sender_id: session.userId,
+        sender_name: session.name,
+        message: caption,
+        image_url: urlData.publicUrl,
+      })
+      .select()
+      .single();
+    if (error) throw error;
+
+    placeholder.remove();
+    chatCache.push(data);
+    $("#chatMessages").appendChild(renderChatMessage(data, session));
+    scrollChatToBottom();
+  } catch (err) {
+    console.error(err);
+    placeholder.remove();
+    showToast("Hindi na-send ang image. Check ang Storage setup.", "error");
   }
 }
 
 function initChat(session) {
   const form = $("#chatForm");
   const input = $("#chatInput");
+  const attachBtn = $("#attachImageBtn");
+  const imageInput = $("#imageInput");
 
   form.addEventListener("submit", (e) => {
     e.preventDefault();
@@ -564,6 +696,13 @@ function initChat(session) {
   input.addEventListener("input", () => {
     input.style.height = "auto";
     input.style.height = `${Math.min(input.scrollHeight, 120)}px`;
+  });
+
+  attachBtn.addEventListener("click", () => imageInput.click());
+  imageInput.addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    e.target.value = "";
+    if (file) sendImageMessage(session, file);
   });
 }
 

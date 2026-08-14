@@ -107,7 +107,11 @@
       <div id="chatMessages" class="chat-messages"></div>
 
       <form id="chatForm" class="chat-composer">
-        <textarea id="chatInput" placeholder="Mag-type ng mensahe..." rows="1" required></textarea>
+        <button type="button" id="attachImageBtn" class="icon-btn ghost" aria-label="Attach image">
+          <i data-lucide="image-plus"></i>
+        </button>
+        <input type="file" id="imageInput" accept="image/*" hidden />
+        <textarea id="chatInput" placeholder="Mag-type ng mensahe..." rows="1"></textarea>
         <button type="submit" class="icon-btn primary" aria-label="Send">
           <i data-lucide="send"></i>
         </button>
@@ -148,6 +152,12 @@
       <label class="field field-grow">
         <span class="field-label">Assignment / note</span>
         <textarea id="subjectContentInput" placeholder="I-type dito ang assignment, reminder, o kahit anong update tungkol sa subject na ito..." required></textarea>
+      </label>
+
+      <label class="field">
+        <span class="field-label">Due date (optional)</span>
+        <input id="subjectDueInput" type="date" />
+        <span class="field-hint">Kung nilagyan, mawawala na ito otomatiko pagkalipas ng petsang ito.</span>
       </label>
 
       <div class="modal-actions">
