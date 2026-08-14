@@ -28,18 +28,18 @@
     <div class="gate-mark" aria-hidden="true">
       <i data-lucide="book-open"></i>
     </div>
-    <h1 class="gate-title">Klase</h1>
-    <p class="gate-sub">Subjects at chat updates para sa klase.</p>
+    <h1 class="gate-title">koleheyo</h1>
+    <p class="gate-sub">assignment ng mga qpal</p>
 
     <form id="loginForm" class="gate-form" novalidate>
       <label class="field">
-        <span class="field-label">Buong pangalan</span>
+        <span class="field-label">buong pangalan pare</span>
         <input id="nameInput" type="text" name="name" placeholder="e.g. Juan Dela Cruz" autocomplete="name" required />
-        <span class="field-hint">Gamitin ang tunay mong pangalan — makikita ito ng iba.</span>
+        <span class="field-hint">Gamitin mo tunay mong pangalan pls — para makikita ito ng iba.</span>
       </label>
 
       <label class="field">
-        <span class="field-label">Password</span>
+        <span class="field-label">password ng app, hindi password mong baliw ka</span>
         <div class="password-wrap">
           <input id="passwordInput" type="password" name="password" placeholder="Enter password" autocomplete="current-password" required />
           <button type="button" id="togglePassword" class="icon-btn ghost" aria-label="Show password">
@@ -51,7 +51,7 @@
       <div id="gateError" class="gate-error" role="alert" hidden></div>
 
       <button type="submit" class="btn btn-primary btn-full">
-        <span>Pasok</span>
+        <span>Pasok ng baby</span>
         <i data-lucide="arrow-right"></i>
       </button>
     </form>
@@ -71,12 +71,11 @@
       <span id="viewTitle">Subjects</span>
     </div>
     <div class="topbar-actions">
-      <span id="userChip" class="user-chip"></span>
       <button id="themeToggle" class="icon-btn ghost" aria-label="Toggle theme">
         <i data-lucide="sun-moon"></i>
       </button>
-      <button id="logoutBtn" class="icon-btn ghost" aria-label="Log out">
-        <i data-lucide="log-out"></i>
+      <button id="settingsBtn" class="icon-btn ghost" aria-label="Open settings">
+        <i data-lucide="menu"></i>
       </button>
     </div>
   </header>
@@ -86,7 +85,7 @@
     <!-- ---------- SUBJECTS VIEW ---------- -->
     <section id="subjectsView" class="view">
       <div class="view-toolbar">
-        <p class="view-hint">Subjects at assignment notes ng klase.</p>
+        <p class="view-hint">Subjects at assignment notes dito boi</p>
         <button id="addSubjectBtn" class="btn btn-primary btn-sm">
           <i data-lucide="plus"></i>
           <span>Add</span>
@@ -174,6 +173,53 @@
         </div>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- ============== SETTINGS DRAWER ============== -->
+<div id="settingsOverlay" class="modal-overlay drawer-overlay" hidden>
+  <div class="drawer-panel" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+    <div class="modal-header">
+      <h2 id="settingsTitle">Settings</h2>
+      <button id="closeSettingsBtn" class="icon-btn ghost" aria-label="Close">
+        <i data-lucide="x"></i>
+      </button>
+    </div>
+
+    <div class="drawer-body">
+      <section class="settings-section">
+        <span class="field-label">Account</span>
+        <div class="account-card">
+          <div id="accountAvatar" class="account-avatar"></div>
+          <div class="account-info">
+            <div id="accountName" class="account-name"></div>
+            <div id="accountPosition" class="account-position" hidden></div>
+          </div>
+        </div>
+        <p class="field-hint">Pwedeng baguhin ng admin ang pangalan/position mo sa Supabase.</p>
+        <button id="drawerLogoutBtn" class="btn btn-ghost btn-full">
+          <i data-lucide="log-out"></i>
+          <span>Log out</span>
+        </button>
+      </section>
+
+      <section class="settings-section">
+        <span class="field-label">About</span>
+        <p class="about-text">Klase — simpleng update board para sa subjects at group chat ng klase.</p>
+        <div id="aboutCredits" class="about-credits"></div>
+      </section>
+
+      <section class="settings-section">
+        <span class="field-label">Add suggestion</span>
+        <form id="suggestionForm" class="suggestion-form">
+          <textarea id="suggestionInput" placeholder="May suggestion ka ba para sa app o sa klase?..." required></textarea>
+          <button type="submit" class="btn btn-primary btn-sm">
+            <i data-lucide="send"></i>
+            <span>Send</span>
+          </button>
+        </form>
+      </section>
+    </div>
   </div>
 </div>
 

@@ -260,6 +260,7 @@ function initGate() {
 function logout() {
   localStorage.removeItem(LS_KEYS.authed);
   teardownRealtime();
+  closeSettings();
   $("#app").hidden = true;
   $("#authGate").hidden = false;
   $("#loginForm").reset();
@@ -707,6 +708,145 @@ function initChat(session) {
 }
 
 // ============================================================
+// Profile — synced with the `profiles` table in Supabase so a
+// person's name/position can be viewed and edited from Supabase
+// itself, not just trapped in their own browser's localStorage.
+// ============================================================
+
+async function ensureProfile(rawSession) {
+  const { data, error } = await sb
+    .from("profiles")
+    .select("*")
+    .eq("id", rawSession.userId)
+    .maybeSingle();
+
+  if (error) {
+    console.error(error);
+    return rawSession;
+  }
+
+  if (data) {
+    // Supabase is the source of truth once a profile exists — a name/position
+    // edited there should show up here without the person doing anything.
+    localStorage.setItem(LS_KEYS.userName, data.name);
+    return { userId: rawSession.userId, name: data.name, position: data.position };
+  }
+
+  // first time this device has ever logged in — create its profile row
+  const { data: created, error: insErr } = await sb
+    .from("profiles")
+    .insert({ id: rawSession.userId, name: rawSession.name })
+    .select()
+    .single();
+
+  if (insErr) {
+    console.error(insErr);
+    return rawSession;
+  }
+  return { userId: rawSession.userId, name: created.name, position: created.position };
+}
+
+function renderAccount(session) {
+  $("#accountAvatar").textContent = (session.name || "?").trim().charAt(0).toUpperCase();
+  $("#accountName").textContent = session.name;
+  const posEl = $("#accountPosition");
+  if (session.position) {
+    posEl.textContent = session.position;
+    posEl.hidden = false;
+  } else {
+    posEl.hidden = true;
+  }
+}
+
+// ============================================================
+// Settings drawer — Account / About / Add suggestion
+// ============================================================
+
+function openSettings(session) {
+  renderAccount(session);
+  fetchAboutCredits();
+
+  $("#settingsOverlay").hidden = false;
+  const btn = $("#settingsBtn");
+  btn.classList.add("menu-open");
+  btn.innerHTML = '<i data-lucide="x"></i>';
+  refreshIcons();
+}
+
+function closeSettings() {
+  $("#settingsOverlay").hidden = true;
+  const btn = $("#settingsBtn");
+  btn.classList.remove("menu-open");
+  btn.innerHTML = '<i data-lucide="menu"></i>';
+  refreshIcons();
+}
+
+async function fetchAboutCredits() {
+  const el = $("#aboutCredits");
+  el.innerHTML = '<span class="about-credits-empty">Loading...</span>';
+
+  const { data, error } = await sb
+    .from("profiles")
+    .select("name, position")
+    .or("position.ilike.developer,position.ilike.admin")
+    .order("position", { ascending: true });
+
+  if (error || !data || data.length === 0) {
+    el.innerHTML = '<span class="about-credits-empty">Wala pang naka-set na developer/admin sa Supabase.</span>';
+    return;
+  }
+
+  el.innerHTML = "";
+  data.forEach((p) => {
+    const chip = document.createElement("span");
+    chip.className = "credit-chip";
+    chip.textContent = `${p.name} — ${p.position}`;
+    el.appendChild(chip);
+  });
+}
+
+async function handleSuggestionSubmit(e, session) {
+  e.preventDefault();
+  const input = $("#suggestionInput");
+  const message = input.value.trim();
+  if (!message) return;
+
+  const btn = e.target.querySelector('button[type="submit"]');
+  btn.disabled = true;
+
+  const { error } = await sb.from("suggestions").insert({
+    author_id: session.userId,
+    author_name: session.name,
+    message,
+  });
+
+  btn.disabled = false;
+
+  if (error) {
+    console.error(error);
+    showToast("Hindi naipadala ang suggestion.", "error");
+    return;
+  }
+
+  input.value = "";
+  burstConfetti(btn);
+  showToast("Salamat sa suggestion!");
+}
+
+function initSettings(session) {
+  $("#settingsBtn").addEventListener("click", () => openSettings(session));
+  $("#closeSettingsBtn").addEventListener("click", closeSettings);
+  $("#settingsOverlay").addEventListener("click", (e) => {
+    if (e.target.id === "settingsOverlay") closeSettings();
+  });
+  $("#drawerLogoutBtn").addEventListener("click", () => {
+    closeSettings();
+    logout();
+  });
+  $("#suggestionForm").addEventListener("submit", (e) => handleSuggestionSubmit(e, session));
+}
+
+// ============================================================
 // Realtime subscriptions
 // ============================================================
 
@@ -746,16 +886,19 @@ function teardownRealtime() {
 // App bootstrap
 // ============================================================
 
-let chatInitialized = false;
+let listenersWired = false;
 
-function enterApp(session) {
+async function enterApp(rawSession) {
+  const session = await ensureProfile(rawSession);
+
   $("#authGate").hidden = true;
   $("#app").hidden = false;
-  $("#userChip").textContent = session.name;
+  renderAccount(session);
 
-  if (!chatInitialized) {
+  if (!listenersWired) {
     initChat(session);
-    chatInitialized = true;
+    initSettings(session);
+    listenersWired = true;
   }
 
   fetchSubjects();
@@ -771,7 +914,6 @@ function init() {
   initSubjects();
 
   $("#themeToggle").addEventListener("click", (e) => toggleTheme(e, $("#themeToggle")));
-  $("#logoutBtn").addEventListener("click", logout);
 
   const session = getSession();
   if (session) {

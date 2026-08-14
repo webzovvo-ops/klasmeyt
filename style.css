@@ -587,6 +587,7 @@ textarea:focus {
   line-height: 1.5;
   display: -webkit-box;
   -webkit-line-clamp: 4;
+  line-clamp: 4;
   -webkit-box-orient: vertical;
   overflow: hidden;
   white-space: pre-wrap;
@@ -884,6 +885,126 @@ textarea:focus {
   gap: 8px;
   margin-left: auto;
 }
+
+/* ==========================================================
+   Settings drawer (slides from the side, distinct from the
+   bottom-sheet modal used for subjects)
+   ========================================================== */
+
+#settingsBtn svg { transition: transform 0.35s var(--ease-spring); }
+#settingsBtn.menu-open svg { transform: rotate(90deg); }
+
+.drawer-overlay {
+  align-items: stretch;
+  justify-content: flex-end;
+}
+
+.drawer-panel {
+  width: 100%;
+  max-width: 340px;
+  height: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0;
+  padding: 20px 20px calc(20px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow-y: auto;
+  animation: drawerIn 0.45s var(--ease-spring) both;
+}
+@keyframes drawerIn {
+  from { transform: translateX(100%); opacity: 0.5; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.drawer-body {
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+  overflow-y: auto;
+}
+
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: 22px;
+  border-bottom: 1px dashed var(--border);
+}
+.settings-section:last-child { border-bottom: none; padding-bottom: 0; }
+.settings-section > .field-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.account-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.account-avatar {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: linear-gradient(155deg, var(--teal), var(--amber));
+  color: #0a0a0c;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+.account-name {
+  font-weight: 700;
+  font-size: 1rem;
+}
+.account-position {
+  display: inline-block;
+  margin-top: 5px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--amber-soft);
+  color: var(--amber);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.about-text {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+.about-credits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.credit-chip {
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  text-transform: capitalize;
+}
+.about-credits-empty {
+  font-size: 0.82rem;
+  color: var(--text-faint);
+}
+
+.suggestion-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.suggestion-form textarea { min-height: 90px; }
 
 /* ==========================================================
    Toast
