@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Klase — Subjects & Chat</title>
+<meta name="description" content="Simple update board para sa subjects at group chat." />
+
+<link rel="manifest" href="/manifest.json" />
+<meta name="theme-color" content="#0a0a0c" />
+<link rel="icon" href="/icons/icon-192.png" />
+<link rel="apple-touch-icon" href="/icons/icon-192.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Klase" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- ============== LOGIN GATE ============== -->
+<div id="authGate" class="gate">
+  <div class="gate-card">
+    <div class="gate-mark" aria-hidden="true">
+      <i data-lucide="book-open"></i>
+    </div>
+    <h1 class="gate-title">Klase</h1>
+    <p class="gate-sub">Subjects at chat updates para sa klase.</p>
+
+    <form id="loginForm" class="gate-form" novalidate>
+      <label class="field">
+        <span class="field-label">Buong pangalan</span>
+        <input id="nameInput" type="text" name="name" placeholder="e.g. Juan Dela Cruz" autocomplete="name" required />
+        <span class="field-hint">Gamitin ang tunay mong pangalan — makikita ito ng iba.</span>
+      </label>
+
+      <label class="field">
+        <span class="field-label">Password</span>
+        <div class="password-wrap">
+          <input id="passwordInput" type="password" name="password" placeholder="Enter password" autocomplete="current-password" required />
+          <button type="button" id="togglePassword" class="icon-btn ghost" aria-label="Show password">
+            <i data-lucide="eye"></i>
+          </button>
+        </div>
+      </label>
+
+      <div id="gateError" class="gate-error" role="alert" hidden></div>
+
+      <button type="submit" class="btn btn-primary btn-full">
+        <span>Pasok</span>
+        <i data-lucide="arrow-right"></i>
+      </button>
+    </form>
+  </div>
+
+  <button id="gateThemeToggle" class="icon-btn ghost gate-theme-toggle" aria-label="Toggle theme">
+    <i data-lucide="sun-moon"></i>
+  </button>
+</div>
+
+<!-- ============== APP ============== -->
+<div id="app" class="app" hidden>
+
+  <header class="topbar">
+    <div class="topbar-title">
+      <i data-lucide="book-open" class="topbar-mark"></i>
+      <span id="viewTitle">Subjects</span>
+    </div>
+    <div class="topbar-actions">
+      <span id="userChip" class="user-chip"></span>
+      <button id="themeToggle" class="icon-btn ghost" aria-label="Toggle theme">
+        <i data-lucide="sun-moon"></i>
+      </button>
+      <button id="logoutBtn" class="icon-btn ghost" aria-label="Log out">
+        <i data-lucide="log-out"></i>
+      </button>
+    </div>
+  </header>
+
+  <main class="views">
+
+    <!-- ---------- SUBJECTS VIEW ---------- -->
+    <section id="subjectsView" class="view">
+      <div class="view-toolbar">
+        <p class="view-hint">Subjects at assignment notes ng klase.</p>
+        <button id="addSubjectBtn" class="btn btn-primary btn-sm">
+          <i data-lucide="plus"></i>
+          <span>Add</span>
+        </button>
+      </div>
+
+      <div id="subjectsEmpty" class="empty-state" hidden>
+        <i data-lucide="notebook-pen"></i>
+        <p>Wala pang subject o note.</p>
+        <p class="empty-sub">Pindutin ang "Add" para maglagay ng una.</p>
+      </div>
+
+      <div id="subjectsGrid" class="subjects-grid"></div>
+    </section>
+
+    <!-- ---------- CHATS VIEW ---------- -->
+    <section id="chatsView" class="view hidden-view">
+      <div id="chatMessages" class="chat-messages"></div>
+
+      <form id="chatForm" class="chat-composer">
+        <textarea id="chatInput" placeholder="Mag-type ng mensahe..." rows="1" required></textarea>
+        <button type="submit" class="icon-btn primary" aria-label="Send">
+          <i data-lucide="send"></i>
+        </button>
+      </form>
+    </section>
+
+  </main>
+
+  <nav class="bottom-nav">
+    <div id="navIndicator" class="nav-indicator" aria-hidden="true"></div>
+    <button class="nav-btn" data-view="subjects" aria-current="page">
+      <i data-lucide="book-open"></i>
+      <span>Subjects</span>
+    </button>
+    <button class="nav-btn" data-view="chats">
+      <i data-lucide="message-circle"></i>
+      <span>Chats</span>
+    </button>
+  </nav>
+</div>
+
+<!-- ============== SUBJECT MODAL ============== -->
+<div id="subjectModal" class="modal-overlay" hidden>
+  <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-header">
+      <h2 id="modalTitle">Add subject</h2>
+      <button id="closeModalBtn" class="icon-btn ghost" aria-label="Close">
+        <i data-lucide="x"></i>
+      </button>
+    </div>
+
+    <form id="subjectForm" class="modal-form">
+      <label class="field">
+        <span class="field-label">Subject</span>
+        <input id="subjectNameInput" type="text" placeholder="e.g. Calculus 2" required />
+      </label>
+
+      <label class="field field-grow">
+        <span class="field-label">Assignment / note</span>
+        <textarea id="subjectContentInput" placeholder="I-type dito ang assignment, reminder, o kahit anong update tungkol sa subject na ito..." required></textarea>
+      </label>
+
+      <div class="modal-actions">
+        <button type="button" id="deleteSubjectBtn" class="btn btn-danger-ghost" hidden>
+          <i data-lucide="trash-2"></i>
+          <span>Delete</span>
+        </button>
+        <div class="modal-actions-right">
+          <button type="button" id="cancelSubjectBtn" class="btn btn-ghost">Cancel</button>
+          <button type="submit" class="btn btn-primary">
+            <i data-lucide="check"></i>
+            <span>Save</span>
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ============== TOAST ============== -->
+<div id="toast" class="toast" hidden></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<script src="app.js"></script>
+</body>
+</html>
