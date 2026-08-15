@@ -239,7 +239,7 @@ function handleLoginSubmit(e) {
 
   const card = $(".gate-card");
   card.classList.add("success");
-  setTimeout(() => enterApp({ name, userId }), 260);
+  setTimeout(() => enterApp({ name, userId }), 900);
 }
 
 function initGate() {
@@ -366,11 +366,14 @@ function renderSubjects() {
 }
 
 async function fetchSubjects() {
-  const nowIso = new Date().toISOString();
+  // Fetch everything and filter expiry in JS rather than as a server-side
+  // filter — a filter referencing expires_at would hard-fail the whole
+  // query on any project that hasn't run the latest schema.sql yet. This
+  // way the list still loads even on an older schema; it just won't hide
+  // expired notes until the column exists.
   const { data, error } = await sb
     .from("subjects")
     .select("*")
-    .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
     .order("updated_at", { ascending: false });
 
   if (error) {
@@ -378,7 +381,10 @@ async function fetchSubjects() {
     showToast("Hindi ma-load ang subjects.", "error");
     return;
   }
-  subjectsCache = data || [];
+  const now = Date.now();
+  subjectsCache = (data || []).filter(
+    (s) => !s.expires_at || new Date(s.expires_at).getTime() > now
+  );
   renderSubjects();
 }
 
@@ -536,11 +542,9 @@ function renderAllChat(session) {
 }
 
 async function fetchChat(session) {
-  const nowIso = new Date().toISOString();
   const { data, error } = await sb
     .from("chat_messages")
     .select("*")
-    .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
     .order("created_at", { ascending: true })
     .limit(300);
 
@@ -549,7 +553,10 @@ async function fetchChat(session) {
     showToast("Hindi ma-load ang chat.", "error");
     return;
   }
-  chatCache = data || [];
+  const now = Date.now();
+  chatCache = (data || []).filter(
+    (m) => !m.expires_at || new Date(m.expires_at).getTime() > now
+  );
   renderAllChat(session);
 }
 
@@ -852,6 +859,7 @@ function initSettings(session) {
 
 let subjectsChannel = null;
 let chatChannel = null;
+let profileChannel = null;
 
 function setupRealtime(session) {
   subjectsChannel = sb
@@ -873,13 +881,31 @@ function setupRealtime(session) {
       if (wasNearBottom || msg.sender_id === session.userId) scrollChatToBottom();
     })
     .subscribe();
+
+  // live-sync this device's own profile — if a name/position gets edited
+  // in Supabase while the app is open, it updates here without a reload
+  profileChannel = sb
+    .channel(`public:profiles:${session.userId}`)
+    .on(
+      "postgres_changes",
+      { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${session.userId}` },
+      (payload) => {
+        session.name = payload.new.name;
+        session.position = payload.new.position;
+        localStorage.setItem(LS_KEYS.userName, session.name);
+        renderAccount(session);
+      }
+    )
+    .subscribe();
 }
 
 function teardownRealtime() {
   if (subjectsChannel) sb.removeChannel(subjectsChannel);
   if (chatChannel) sb.removeChannel(chatChannel);
+  if (profileChannel) sb.removeChannel(profileChannel);
   subjectsChannel = null;
   chatChannel = null;
+  profileChannel = null;
 }
 
 // ============================================================

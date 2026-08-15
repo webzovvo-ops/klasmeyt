@@ -323,13 +323,15 @@ textarea:focus {
 }
 
 .gate-card.success {
-  animation: gateSuccess 0.5s var(--ease-pop) both;
+  animation: gateSuccess 0.95s var(--ease-pop) both;
 }
 @keyframes gateSuccess {
-  0% { transform: scale(1); }
-  40% { transform: scale(1.04) rotate(1deg); }
-  70% { transform: scale(0.98) rotate(-0.5deg); }
-  100% { transform: scale(1.1); opacity: 0; }
+  0%   { transform: scale(1) rotate(0deg) translate(0, 0); opacity: 1; }
+  12%  { transform: scale(1.12) rotate(180deg) translate(2px, -2px); }
+  30%  { transform: scale(0.86) rotate(540deg) translate(-10px, 6px); }
+  48%  { transform: scale(1.08) rotate(880deg) translate(8px, -6px); }
+  64%  { transform: scale(1) rotate(1080deg) translate(0, 0); opacity: 1; }
+  100% { transform: scale(0.2) rotate(1200deg) translate(130vw, -80vh); opacity: 0; }
 }
 
 .gate-mark {
@@ -337,14 +339,16 @@ textarea:focus {
   height: 56px;
   margin: 0 auto 16px;
   border-radius: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  overflow: hidden;
   background: linear-gradient(155deg, var(--teal), var(--amber));
-  color: #0a0a0c;
   animation: markFloat 3.2s ease-in-out infinite;
 }
-.gate-mark svg { width: 26px; height: 26px; }
+.gate-mark-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
 
 @keyframes markFloat {
   0%, 100% { transform: translateY(0) rotate(-2deg); }
