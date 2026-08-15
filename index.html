@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Koleheyo ni speed</title>
+<title>Klase — Subjects & Chat</title>
 <meta name="description" content="Simple update board para sa subjects at group chat." />
 
 <link rel="manifest" href="/manifest.json" />
@@ -34,8 +34,8 @@
     <form id="loginForm" class="gate-form" novalidate>
       <label class="field">
         <span class="field-label">buong pangalan pare</span>
-        <input id="nameInput" type="text" name="name" placeholder="e.g.  José Protasio Rizal Mercado y Alonso Realonda" autocomplete="name" required />
-        <span class="field-hint">Gamitin mo tunay mong pangalan pls — para makikita to ng iba.</span>
+        <input id="nameInput" type="text" name="name" placeholder="e.g. Juan Dela Cruz" autocomplete="name" required />
+        <span class="field-hint">Gamitin mo tunay mong pangalan pls — para makikita ito ng iba.</span>
       </label>
 
       <label class="field">
@@ -94,8 +94,8 @@
 
       <div id="subjectsEmpty" class="empty-state" hidden>
         <i data-lucide="notebook-pen"></i>
-        <p>Wala</p>
-        <p class="empty-sub">add subject</p>
+        <p>Wala pang subject o note.</p>
+        <p class="empty-sub">Pindutin ang "Add" para maglagay ng una.</p>
       </div>
 
       <div id="subjectsGrid" class="subjects-grid"></div>
@@ -156,7 +156,7 @@
       <label class="field">
         <span class="field-label">Due date (optional)</span>
         <input id="subjectDueInput" type="date" />
-        <span class="field-hint">mawawala to sa due date pre</span>
+        <span class="field-hint">Kung nilagyan, mawawala na ito otomatiko pagkalipas ng petsang ito.</span>
       </label>
 
       <div class="modal-actions">
@@ -196,7 +196,7 @@
             <div id="accountPosition" class="account-position" hidden></div>
           </div>
         </div>
-        <p class="field-hint"></p>
+        <p class="field-hint">Pwedeng baguhin ng admin ang pangalan/position mo sa Supabase.</p>
         <button id="drawerLogoutBtn" class="btn btn-ghost btn-full">
           <i data-lucide="log-out"></i>
           <span>Log out</span>
@@ -205,12 +205,12 @@
 
       <section class="settings-section">
         <span class="field-label">About</span>
-        <p class="about-text">Jesus loves you guys</p>
+        <p class="about-text">Klase — simpleng update board para sa subjects at group chat ng klase.</p>
         <div id="aboutCredits" class="about-credits"></div>
       </section>
 
       <section class="settings-section">
-        <span class="field-label">Add suggestion kung ano pwede (diko  marereveice yan HAHAHA)</span>
+        <span class="field-label">Add suggestion</span>
         <form id="suggestionForm" class="suggestion-form">
           <textarea id="suggestionInput" placeholder="May suggestion ka ba para sa app o sa klase?..." required></textarea>
           <button type="submit" class="btn btn-primary btn-sm">
