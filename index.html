@@ -105,6 +105,10 @@
     <section id="chatsView" class="view hidden-view">
       <div id="chatMessages" class="chat-messages"></div>
 
+      <button id="scrollBottomBtn" class="scroll-bottom-btn" hidden aria-label="Scroll to latest">
+        <i data-lucide="arrow-down"></i>
+      </button>
+
       <form id="chatForm" class="chat-composer">
         <button type="button" id="attachImageBtn" class="icon-btn ghost" aria-label="Attach image">
           <i data-lucide="image-plus"></i>
@@ -142,6 +146,7 @@
       </button>
     </div>
 
+    <!-- ADD form: only used for creating a new subject -->
     <form id="subjectForm" class="modal-form">
       <label class="field">
         <span class="field-label">Subject</span>
@@ -153,6 +158,20 @@
         <textarea id="subjectContentInput" placeholder="I-type dito ang assignment, reminder, o kahit anong update tungkol sa subject na ito..." required></textarea>
       </label>
 
+      <div class="subject-image-attach">
+        <button type="button" id="subjectAttachImageBtn" class="btn btn-ghost btn-sm">
+          <i data-lucide="image-plus"></i>
+          <span>Add photo</span>
+        </button>
+        <input type="file" id="subjectImageInput" accept="image/*" hidden />
+        <div id="subjectImagePreviewWrap" class="subject-image-preview-wrap" hidden>
+          <img id="subjectImagePreview" class="subject-image-preview" alt="" />
+          <button type="button" id="subjectImageRemoveBtn" class="icon-btn ghost" aria-label="Remove photo">
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+      </div>
+
       <label class="field">
         <span class="field-label">Due date (optional)</span>
         <input id="subjectDueInput" type="date" />
@@ -160,10 +179,6 @@
       </label>
 
       <div class="modal-actions">
-        <button type="button" id="deleteSubjectBtn" class="btn btn-danger-ghost" hidden>
-          <i data-lucide="trash-2"></i>
-          <span>Delete</span>
-        </button>
         <div class="modal-actions-right">
           <button type="button" id="cancelSubjectBtn" class="btn btn-ghost">Cancel</button>
           <button type="submit" class="btn btn-primary">
@@ -173,6 +188,25 @@
         </div>
       </div>
     </form>
+
+    <!-- VIEW body: read-only, used when opening an existing card -->
+    <div id="subjectViewBody" class="subject-view-body" hidden>
+      <div id="subjectViewImageWrap" class="subject-view-image-wrap" hidden>
+        <img id="subjectViewImage" class="subject-view-image" alt="" />
+      </div>
+      <div id="subjectViewContent" class="subject-view-content"></div>
+      <div id="subjectViewMeta" class="subject-view-meta"></div>
+
+      <div class="modal-actions">
+        <button type="button" id="deleteSubjectBtn" class="btn btn-danger-ghost" hidden>
+          <i data-lucide="trash-2"></i>
+          <span>Delete</span>
+        </button>
+        <div class="modal-actions-right">
+          <button type="button" id="closeViewBtn" class="btn btn-ghost">Close</button>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -190,7 +224,11 @@
       <section class="settings-section">
         <span class="field-label">Account</span>
         <div class="account-card">
-          <div id="accountAvatar" class="account-avatar"></div>
+          <button type="button" id="changeAvatarBtn" class="account-avatar-btn" aria-label="Change profile picture">
+            <img id="accountAvatarImg" class="account-avatar-img" src="profile.jpg" alt="" />
+            <span class="account-avatar-edit"><i data-lucide="camera"></i></span>
+          </button>
+          <input type="file" id="avatarInput" accept="image/*" hidden />
           <div class="account-info">
             <div id="accountName" class="account-name"></div>
             <div id="accountPosition" class="account-position" hidden></div>

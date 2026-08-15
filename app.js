@@ -27,6 +27,11 @@ const LS_KEYS = {
   theme: "klase_theme",
 };
 
+// the live, Supabase-synced identity of whoever is using the app right now —
+// {userId, name, position, avatarUrl}. Subject/settings code that has no
+// session parameter threaded to it reads this directly.
+let currentSession = null;
+
 // ============================================================
 // Utilities
 // ============================================================
@@ -308,7 +313,7 @@ function initNav() {
 // ============================================================
 
 let subjectsCache = [];
-let editingSubjectId = null;
+let pendingSubjectImageFile = null;
 
 function renderSubjects() {
   const grid = $("#subjectsGrid");
@@ -335,10 +340,21 @@ function renderSubjects() {
     const name = document.createElement("div");
     name.className = "subject-card-name";
     name.textContent = subj.subject_name;
+    card.appendChild(name);
+
+    if (subj.image_url) {
+      const thumb = document.createElement("img");
+      thumb.className = "subject-card-thumb";
+      thumb.src = subj.image_url;
+      thumb.alt = "";
+      thumb.loading = "lazy";
+      card.appendChild(thumb);
+    }
 
     const content = document.createElement("div");
     content.className = "subject-card-content";
     content.textContent = subj.content;
+    card.appendChild(content);
 
     const meta = document.createElement("div");
     meta.className = "subject-card-meta";
@@ -357,10 +373,10 @@ function renderSubjects() {
       time.textContent = timeAgo(subj.updated_at || subj.created_at);
       meta.appendChild(time);
     }
+    card.appendChild(meta);
 
-    card.append(name, content, meta);
     card.dataset.id = subj.id;
-    card.addEventListener("click", () => openSubjectModal("edit", subj));
+    card.addEventListener("click", () => openViewSubjectModal(subj));
     grid.appendChild(card);
   });
 }
@@ -388,24 +404,64 @@ async function fetchSubjects() {
   renderSubjects();
 }
 
-function openSubjectModal(mode, subj = null) {
-  editingSubjectId = mode === "edit" ? subj.id : null;
-  $("#modalTitle").textContent = mode === "edit" ? "Edit subject" : "Add subject";
-  $("#subjectNameInput").value = mode === "edit" ? subj.subject_name : "";
-  $("#subjectContentInput").value = mode === "edit" ? subj.content : "";
+function resetSubjectImagePicker() {
+  pendingSubjectImageFile = null;
+  $("#subjectImagePreviewWrap").hidden = true;
+  $("#subjectImagePreview").src = "";
+}
+
+function openAddSubjectModal() {
+  $("#modalTitle").textContent = "Add subject";
+  $("#subjectForm").hidden = false;
+  $("#subjectViewBody").hidden = true;
+  $("#subjectForm").reset();
   $("#subjectContentInput").style.height = "auto";
-  $("#subjectDueInput").value = mode === "edit" && subj.expires_at ? subj.expires_at.slice(0, 10) : "";
-  $("#deleteSubjectBtn").hidden = mode !== "edit";
+  resetSubjectImagePicker();
 
   $("#subjectModal").hidden = false;
   refreshIcons();
   setTimeout(() => $("#subjectNameInput").focus(), 80);
 }
 
+/** Clicking an existing card only ever opens a read-only view — editing
+ *  isn't offered. Only someone whose profile position is "developer" gets
+ *  a Delete button here. */
+function openViewSubjectModal(subj) {
+  $("#modalTitle").textContent = subj.subject_name;
+  $("#subjectForm").hidden = true;
+  $("#subjectViewBody").hidden = false;
+
+  const imgWrap = $("#subjectViewImageWrap");
+  if (subj.image_url) {
+    $("#subjectViewImage").src = subj.image_url;
+    imgWrap.hidden = false;
+  } else {
+    imgWrap.hidden = true;
+  }
+
+  $("#subjectViewContent").textContent = subj.content;
+
+  const meta = $("#subjectViewMeta");
+  meta.innerHTML = "";
+  const author = document.createElement("span");
+  author.textContent = subj.author_name;
+  const time = document.createElement("span");
+  time.textContent = subj.expires_at
+    ? "Due " + new Date(subj.expires_at).toLocaleDateString("en-PH", { month: "short", day: "numeric" })
+    : timeAgo(subj.updated_at || subj.created_at);
+  meta.append(author, time);
+
+  const deleteBtn = $("#deleteSubjectBtn");
+  const canDelete = (currentSession?.position || "").trim().toLowerCase() === "developer";
+  deleteBtn.hidden = !canDelete;
+  deleteBtn.dataset.id = subj.id;
+
+  $("#subjectModal").hidden = false;
+  refreshIcons();
+}
+
 function closeSubjectModal() {
   $("#subjectModal").hidden = true;
-  editingSubjectId = null;
-  $("#subjectForm").reset();
 }
 
 async function handleSubjectSubmit(e) {
@@ -417,42 +473,48 @@ async function handleSubjectSubmit(e) {
   const dueRaw = $("#subjectDueInput").value; // "YYYY-MM-DD" or ""
   const expires_at = dueRaw ? new Date(`${dueRaw}T23:59:59`).toISOString() : null;
 
-  const session = getSession();
   const saveBtn = e.target.querySelector('button[type="submit"]');
   saveBtn.disabled = true;
 
-  let error;
-  const wasEditing = !!editingSubjectId;
-  if (editingSubjectId) {
-    ({ error } = await sb
-      .from("subjects")
-      .update({ subject_name, content, expires_at })
-      .eq("id", editingSubjectId));
-  } else {
-    ({ error } = await sb
-      .from("subjects")
-      .insert({ subject_name, content, author_name: session.name, expires_at }));
-  }
+  try {
+    let image_url = null;
+    if (pendingSubjectImageFile) {
+      const blob = await compressImage(pendingSubjectImageFile);
+      const path = `${currentSession.userId}/${Date.now()}-${uuid()}.jpg`;
+      const { error: upErr } = await sb.storage
+        .from("subject-images")
+        .upload(path, blob, { contentType: "image/jpeg", upsert: false });
+      if (upErr) throw upErr;
+      const { data: urlData } = sb.storage.from("subject-images").getPublicUrl(path);
+      image_url = urlData.publicUrl;
+    }
 
-  saveBtn.disabled = false;
+    const { error } = await sb.from("subjects").insert({
+      subject_name,
+      content,
+      expires_at,
+      image_url,
+      author_name: currentSession.name,
+    });
+    if (error) throw error;
 
-  if (error) {
-    console.error(error);
+    burstConfetti(saveBtn);
+    showToast("Naidagdag na.");
+    closeSubjectModal();
+    fetchSubjects();
+  } catch (err) {
+    console.error(err);
     showToast("Hindi na-save. Subukan ulit.", "error");
-    return;
+  } finally {
+    saveBtn.disabled = false;
   }
-
-  burstConfetti(saveBtn);
-  showToast(wasEditing ? "Na-update na." : "Naidagdag na.");
-  closeSubjectModal();
-  fetchSubjects();
 }
 
 async function handleDeleteSubject() {
-  if (!editingSubjectId) return;
+  const id = $("#deleteSubjectBtn").dataset.id;
+  if (!id) return;
   if (!confirm("Sigurado ka bang tatanggalin ito?")) return;
 
-  const id = editingSubjectId;
   const cardEl = $(`#subjectsGrid .subject-card[data-id="${id}"]`);
   if (cardEl) cardEl.classList.add("removing");
 
@@ -468,9 +530,10 @@ async function handleDeleteSubject() {
 }
 
 function initSubjects() {
-  $("#addSubjectBtn").addEventListener("click", () => openSubjectModal("add"));
+  $("#addSubjectBtn").addEventListener("click", openAddSubjectModal);
   $("#closeModalBtn").addEventListener("click", closeSubjectModal);
   $("#cancelSubjectBtn").addEventListener("click", closeSubjectModal);
+  $("#closeViewBtn").addEventListener("click", closeSubjectModal);
   $("#subjectModal").addEventListener("click", (e) => {
     if (e.target.id === "subjectModal") closeSubjectModal();
   });
@@ -482,6 +545,21 @@ function initSubjects() {
     contentInput.style.height = "auto";
     contentInput.style.height = `${Math.min(contentInput.scrollHeight, 420)}px`;
   });
+
+  $("#subjectAttachImageBtn").addEventListener("click", () => $("#subjectImageInput").click());
+  $("#subjectImageInput").addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    pendingSubjectImageFile = file;
+    const reader = new FileReader();
+    reader.onload = () => {
+      $("#subjectImagePreview").src = reader.result;
+      $("#subjectImagePreviewWrap").hidden = false;
+    };
+    reader.readAsDataURL(file);
+  });
+  $("#subjectImageRemoveBtn").addEventListener("click", resetSubjectImagePicker);
 }
 
 // ============================================================
@@ -489,22 +567,28 @@ function initSubjects() {
 // ============================================================
 
 let chatCache = [];
+// tracks the last group actually in the DOM so new messages (optimistic
+// send or realtime) can be appended into it when the sender matches,
+// instead of re-rendering everything on every message.
+let lastRenderedGroup = null; // { senderId, groupEl, bubblesEl }
 
 function scrollChatToBottom(instant = false) {
   const el = $("#chatMessages");
   el.scrollTo({ top: el.scrollHeight, behavior: instant ? "auto" : "smooth" });
 }
 
-function renderChatMessage(msg, session) {
-  const row = document.createElement("div");
-  row.className = "bubble-row " + (msg.sender_id === session.userId ? "own" : "other");
+function updateScrollButtonVisibility() {
+  const el = $("#chatMessages");
+  const btn = $("#scrollBottomBtn");
+  if (!el || !btn) return;
+  const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+  btn.hidden = distanceFromBottom < 150;
+}
 
-  if (msg.sender_id !== session.userId) {
-    const name = document.createElement("div");
-    name.className = "bubble-name";
-    name.textContent = msg.sender_name;
-    row.appendChild(name);
-  }
+/** One bubble + its timestamp. Multiple of these stack inside a group. */
+function renderBubbleUnit(msg) {
+  const unit = document.createElement("div");
+  unit.className = "bubble-unit";
 
   const bubble = document.createElement("div");
   bubble.className = "bubble" + (msg.image_url ? " has-image" : "");
@@ -524,21 +608,104 @@ function renderChatMessage(msg, session) {
     text.textContent = msg.message;
     bubble.appendChild(text);
   }
-  row.appendChild(bubble);
+  unit.appendChild(bubble);
 
   const time = document.createElement("div");
   time.className = "bubble-time";
   time.textContent = formatClock(msg.created_at);
-  row.appendChild(time);
+  unit.appendChild(time);
 
-  return row;
+  return unit;
+}
+
+/** Builds one Messenger-style group: name (others only) + avatar + a
+ *  stack of bubbles. Avatar sits at the bottom for other people's groups,
+ *  top for your own — see the group-row CSS for the actual alignment. */
+function renderMessageGroupEl(group, session) {
+  const isOwn = group.senderId === session.userId;
+
+  const wrap = document.createElement("div");
+  wrap.className = "msg-group " + (isOwn ? "own" : "other");
+  wrap.dataset.senderId = group.senderId;
+
+  if (!isOwn) {
+    const name = document.createElement("div");
+    name.className = "group-name";
+    name.textContent = group.senderName;
+    wrap.appendChild(name);
+  }
+
+  const row = document.createElement("div");
+  row.className = "group-row";
+
+  const lastMsg = group.messages[group.messages.length - 1];
+  const avatar = document.createElement("img");
+  avatar.className = "group-avatar";
+  avatar.alt = "";
+  avatar.src = lastMsg.sender_avatar_url || "profile.jpg";
+  avatar.addEventListener("error", function onErr() {
+    avatar.removeEventListener("error", onErr);
+    avatar.src = "profile.jpg";
+  });
+
+  const bubbles = document.createElement("div");
+  bubbles.className = "group-bubbles";
+  group.messages.forEach((msg) => bubbles.appendChild(renderBubbleUnit(msg)));
+
+  if (isOwn) {
+    row.append(bubbles, avatar);
+  } else {
+    row.append(avatar, bubbles);
+  }
+  wrap.appendChild(row);
+
+  return { el: wrap, bubblesEl: bubbles };
+}
+
+function groupConsecutiveMessages(messages) {
+  const groups = [];
+  for (const msg of messages) {
+    const last = groups[groups.length - 1];
+    if (last && last.senderId === msg.sender_id) {
+      last.messages.push(msg);
+    } else {
+      groups.push({ senderId: msg.sender_id, senderName: msg.sender_name, messages: [msg] });
+    }
+  }
+  return groups;
 }
 
 function renderAllChat(session) {
   const container = $("#chatMessages");
   container.innerHTML = "";
-  chatCache.forEach((msg) => container.appendChild(renderChatMessage(msg, session)));
+  lastRenderedGroup = null;
+
+  groupConsecutiveMessages(chatCache).forEach((group) => {
+    const { el, bubblesEl } = renderMessageGroupEl(group, session);
+    container.appendChild(el);
+    lastRenderedGroup = { senderId: group.senderId, groupEl: el, bubblesEl };
+  });
   scrollChatToBottom(true);
+}
+
+/** Appends one new message — continuing the last visible group if it's
+ *  from the same sender, or starting a fresh group otherwise. Used by
+ *  both the optimistic local send and the realtime handler so the two
+ *  paths always produce the same grouping. */
+function appendChatMessage(msg, session) {
+  const container = $("#chatMessages");
+
+  if (lastRenderedGroup && lastRenderedGroup.senderId === msg.sender_id) {
+    lastRenderedGroup.bubblesEl.appendChild(renderBubbleUnit(msg));
+    const avatarEl = lastRenderedGroup.groupEl.querySelector(".group-avatar");
+    if (avatarEl && msg.sender_avatar_url) avatarEl.src = msg.sender_avatar_url;
+    return;
+  }
+
+  const group = { senderId: msg.sender_id, senderName: msg.sender_name, messages: [msg] };
+  const { el, bubblesEl } = renderMessageGroupEl(group, session);
+  container.appendChild(el);
+  lastRenderedGroup = { senderId: msg.sender_id, groupEl: el, bubblesEl };
 }
 
 async function fetchChat(session) {
@@ -579,7 +746,12 @@ async function sendChatMessage(session) {
   // for picking up messages from *other* people live.
   const { data, error } = await sb
     .from("chat_messages")
-    .insert({ sender_id: session.userId, sender_name: session.name, message })
+    .insert({
+      sender_id: session.userId,
+      sender_name: session.name,
+      sender_avatar_url: session.avatarUrl || null,
+      message,
+    })
     .select()
     .single();
 
@@ -591,7 +763,7 @@ async function sendChatMessage(session) {
   }
 
   chatCache.push(data);
-  $("#chatMessages").appendChild(renderChatMessage(data, session));
+  appendChatMessage(data, session);
   scrollChatToBottom();
 }
 
@@ -638,14 +810,22 @@ async function sendImageMessage(session, file) {
   $("#chatInput").value = "";
   $("#chatInput").style.height = "auto";
 
+  // temporary placeholder — deliberately NOT tracked in lastRenderedGroup,
+  // so it doesn't affect grouping once it's swapped for the real message
   const placeholder = document.createElement("div");
-  placeholder.className = "bubble-row own";
+  placeholder.className = "msg-group own";
+  const pRow = document.createElement("div");
+  pRow.className = "group-row";
+  const pBubbles = document.createElement("div");
+  pBubbles.className = "group-bubbles";
   const pb = document.createElement("div");
   pb.className = "bubble has-image uploading";
   const spinner = document.createElement("div");
   spinner.className = "upload-spinner";
   pb.appendChild(spinner);
-  placeholder.appendChild(pb);
+  pBubbles.appendChild(pb);
+  pRow.appendChild(pBubbles);
+  placeholder.appendChild(pRow);
   $("#chatMessages").appendChild(placeholder);
   scrollChatToBottom();
 
@@ -665,6 +845,7 @@ async function sendImageMessage(session, file) {
       .insert({
         sender_id: session.userId,
         sender_name: session.name,
+        sender_avatar_url: session.avatarUrl || null,
         message: caption,
         image_url: urlData.publicUrl,
       })
@@ -674,7 +855,7 @@ async function sendImageMessage(session, file) {
 
     placeholder.remove();
     chatCache.push(data);
-    $("#chatMessages").appendChild(renderChatMessage(data, session));
+    appendChatMessage(data, session);
     scrollChatToBottom();
   } catch (err) {
     console.error(err);
@@ -712,6 +893,9 @@ function initChat(session) {
     e.target.value = "";
     if (file) sendImageMessage(session, file);
   });
+
+  $("#chatMessages").addEventListener("scroll", updateScrollButtonVisibility);
+  $("#scrollBottomBtn").addEventListener("click", () => scrollChatToBottom());
 }
 
 // ============================================================
@@ -729,14 +913,14 @@ async function ensureProfile(rawSession) {
 
   if (error) {
     console.error(error);
-    return rawSession;
+    return { ...rawSession, avatarUrl: null };
   }
 
   if (data) {
     // Supabase is the source of truth once a profile exists — a name/position
     // edited there should show up here without the person doing anything.
     localStorage.setItem(LS_KEYS.userName, data.name);
-    return { userId: rawSession.userId, name: data.name, position: data.position };
+    return { userId: rawSession.userId, name: data.name, position: data.position, avatarUrl: data.avatar_url };
   }
 
   // first time this device has ever logged in — create its profile row
@@ -748,13 +932,13 @@ async function ensureProfile(rawSession) {
 
   if (insErr) {
     console.error(insErr);
-    return rawSession;
+    return { ...rawSession, avatarUrl: null };
   }
-  return { userId: rawSession.userId, name: created.name, position: created.position };
+  return { userId: rawSession.userId, name: created.name, position: created.position, avatarUrl: created.avatar_url };
 }
 
 function renderAccount(session) {
-  $("#accountAvatar").textContent = (session.name || "?").trim().charAt(0).toUpperCase();
+  $("#accountAvatarImg").src = session.avatarUrl || "profile.jpg";
   $("#accountName").textContent = session.name;
   const posEl = $("#accountPosition");
   if (session.position) {
@@ -762,6 +946,41 @@ function renderAccount(session) {
     posEl.hidden = false;
   } else {
     posEl.hidden = true;
+  }
+}
+
+/** Upload a new profile picture, update Supabase, and refresh the UI. */
+async function handleAvatarChange(file) {
+  if (!currentSession) return;
+  if (!file || !file.type.startsWith("image/")) return;
+  if (file.size > 15 * 1024 * 1024) {
+    showToast("Masyadong malaki ang photo (max 15MB).", "error");
+    return;
+  }
+
+  try {
+    const blob = await compressImage(file, 512, 0.85);
+    const path = `${currentSession.userId}/${Date.now()}.jpg`;
+
+    const { error: upErr } = await sb.storage
+      .from("avatars")
+      .upload(path, blob, { contentType: "image/jpeg", upsert: true });
+    if (upErr) throw upErr;
+
+    const { data: urlData } = sb.storage.from("avatars").getPublicUrl(path);
+
+    const { error } = await sb
+      .from("profiles")
+      .update({ avatar_url: urlData.publicUrl })
+      .eq("id", currentSession.userId);
+    if (error) throw error;
+
+    currentSession.avatarUrl = urlData.publicUrl;
+    renderAccount(currentSession);
+    showToast("Na-update ang profile picture.");
+  } catch (err) {
+    console.error(err);
+    showToast("Hindi na-upload ang photo. Check ang Storage setup.", "error");
   }
 }
 
@@ -851,6 +1070,13 @@ function initSettings(session) {
     logout();
   });
   $("#suggestionForm").addEventListener("submit", (e) => handleSuggestionSubmit(e, session));
+
+  $("#changeAvatarBtn").addEventListener("click", () => $("#avatarInput").click());
+  $("#avatarInput").addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    e.target.value = "";
+    if (file) handleAvatarChange(file);
+  });
 }
 
 // ============================================================
@@ -877,7 +1103,7 @@ function setupRealtime(session) {
       chatCache.push(msg);
       const container = $("#chatMessages");
       const wasNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 120;
-      container.appendChild(renderChatMessage(msg, session));
+      appendChatMessage(msg, session);
       if (wasNearBottom || msg.sender_id === session.userId) scrollChatToBottom();
     })
     .subscribe();
@@ -892,6 +1118,7 @@ function setupRealtime(session) {
       (payload) => {
         session.name = payload.new.name;
         session.position = payload.new.position;
+        session.avatarUrl = payload.new.avatar_url;
         localStorage.setItem(LS_KEYS.userName, session.name);
         renderAccount(session);
       }
@@ -915,7 +1142,8 @@ function teardownRealtime() {
 let listenersWired = false;
 
 async function enterApp(rawSession) {
-  const session = await ensureProfile(rawSession);
+  currentSession = await ensureProfile(rawSession);
+  const session = currentSession;
 
   $("#authGate").hidden = true;
   $("#app").hidden = false;

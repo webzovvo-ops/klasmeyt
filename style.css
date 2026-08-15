@@ -522,7 +522,7 @@ textarea:focus {
   content: "";
   position: absolute;
   top: 0; left: 0;
-  width: 34px; height: 34px;
+  width: 22px; height: 22px;
   background: linear-gradient(135deg, transparent 50%, var(--card-accent, var(--amber)) 50%);
   opacity: 0.85;
   border-top-left-radius: var(--radius-md);
@@ -542,6 +542,21 @@ textarea:focus {
 .subject-card:nth-child(5n+3) { --tilt: -0.6deg; }
 .subject-card:nth-child(5n+4) { --tilt: 1.8deg; }
 .subject-card:nth-child(5n+5) { --tilt: -1.1deg; }
+
+/* every 2nd card gets a slow idle sway — pure flavor. It always resolves
+   back to its own --tilt at the start/end of the cycle so there's no jump
+   when the entrance animation hands off to it, and it fully stops on
+   hover so the straighten-up hover effect stays crisp and clickable. */
+.subject-card:nth-child(5n+2) {
+  animation: cardIn 0.5s var(--ease-pop) both, cardSway 4.5s ease-in-out 0.6s infinite;
+}
+.subject-card:nth-child(5n+2):hover {
+  animation: none;
+}
+@keyframes cardSway {
+  0%, 100% { transform: rotate(var(--tilt, 0deg)); }
+  50% { transform: rotate(calc(var(--tilt, 0deg) + 3deg)); }
+}
 
 @keyframes cardIn {
   from { opacity: 0; transform: translateY(18px) scale(0.9) rotate(0deg); }
@@ -582,8 +597,17 @@ textarea:focus {
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 1.02rem;
-  margin: 4px 0 8px;
+  margin: 10px 0 8px;
   padding-right: 8px;
+}
+.subject-card-thumb {
+  width: 100%;
+  height: 92px;
+  object-fit: cover;
+  border-radius: 10px;
+  margin: 2px 0 8px;
+  display: block;
+  background: var(--surface-2);
 }
 .subject-card-content {
   color: var(--text-muted);
@@ -641,17 +665,20 @@ textarea:focus {
   padding: 18px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
+  position: relative;
 }
 
-.bubble-row {
+/* one .msg-group per run of consecutive messages from the same sender —
+   Messenger-style: the avatar shows once per group, not once per bubble. */
+.msg-group {
   display: flex;
   flex-direction: column;
   max-width: 78%;
   animation: bubbleIn 0.45s var(--ease-pop) both;
 }
-.bubble-row.own { align-self: flex-end; align-items: flex-end; }
-.bubble-row.other { align-self: flex-start; align-items: flex-start; }
+.msg-group.own { align-self: flex-end; align-items: flex-end; }
+.msg-group.other { align-self: flex-start; align-items: flex-start; }
 
 @keyframes bubbleIn {
   0% { opacity: 0; transform: translateY(14px) scale(0.85); }
@@ -659,12 +686,49 @@ textarea:focus {
   100% { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-.bubble-name {
+.group-name {
   font-size: 0.72rem;
   font-weight: 600;
   color: var(--teal);
-  margin: 0 4px 3px;
+  margin: 0 4px 4px 36px;
 }
+
+.group-row {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+/* others: avatar on the left, bottom-aligned with the last bubble */
+.msg-group.other .group-row { flex-direction: row; align-items: flex-end; }
+/* own: avatar on the right, top-aligned with the first bubble */
+.msg-group.own .group-row { flex-direction: row-reverse; align-items: flex-start; }
+
+.group-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.group-bubbles {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.msg-group.own .group-bubbles { align-items: flex-end; }
+.msg-group.other .group-bubbles { align-items: flex-start; }
+
+.bubble-unit {
+  display: flex;
+  flex-direction: column;
+  max-width: 100%;
+}
+.msg-group.own .bubble-unit { align-items: flex-end; }
+.msg-group.other .bubble-unit { align-items: flex-start; }
 
 .bubble {
   padding: 10px 14px;
@@ -674,12 +738,12 @@ textarea:focus {
   white-space: pre-wrap;
   word-break: break-word;
 }
-.bubble-row.own .bubble {
+.msg-group.own .bubble {
   background: var(--bubble-own);
   color: var(--bubble-own-text);
   border-bottom-right-radius: 5px;
 }
-.bubble-row.other .bubble {
+.msg-group.other .bubble {
   background: var(--bubble-other);
   color: var(--bubble-other-text);
   border: 1px solid var(--border);
@@ -724,6 +788,31 @@ textarea:focus {
   color: var(--text-faint);
   margin: 3px 4px 0;
   font-family: var(--font-mono);
+}
+
+.scroll-bottom-btn {
+  position: absolute;
+  right: 16px;
+  bottom: 18px;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--amber);
+  box-shadow: var(--shadow-md);
+  z-index: 4;
+  animation: bumpIn 0.3s var(--ease-pop) both;
+  transition: transform 0.15s var(--ease);
+}
+.scroll-bottom-btn:active { transform: scale(0.9); }
+.scroll-bottom-btn svg { width: 19px; height: 19px; }
+@keyframes bumpIn {
+  from { opacity: 0; transform: scale(0.5) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
 .chat-composer {
@@ -877,6 +966,36 @@ textarea:focus {
   font-size: 1rem;
 }
 
+.subject-image-attach {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.subject-image-preview-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 220px;
+  animation: cardIn 0.3s var(--ease-pop) both;
+}
+.subject-image-preview {
+  width: 100%;
+  border-radius: var(--radius-sm);
+  display: block;
+  max-height: 180px;
+  object-fit: cover;
+}
+.subject-image-preview-wrap .icon-btn {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 28px;
+  height: 28px;
+  background: var(--danger);
+  color: #fff;
+}
+.subject-image-preview-wrap .icon-btn svg { width: 15px; height: 15px; }
+.subject-image-preview-wrap .icon-btn:hover { background: var(--danger); opacity: 0.85; }
+
 .modal-actions {
   display: flex;
   align-items: center;
@@ -888,6 +1007,45 @@ textarea:focus {
   display: flex;
   gap: 8px;
   margin-left: auto;
+}
+
+/* ---- read-only subject view (opening an existing card) ---- */
+.subject-view-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+  min-height: 0;
+}
+.subject-view-image-wrap {
+  width: 100%;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  max-height: 260px;
+}
+.subject-view-image {
+  width: 100%;
+  max-height: 260px;
+  object-fit: cover;
+  display: block;
+}
+.subject-view-content {
+  font-size: 1rem;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text);
+}
+.subject-view-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border);
+  font-size: 0.78rem;
+  color: var(--text-faint);
+  font-family: var(--font-mono);
 }
 
 /* ==========================================================
@@ -948,20 +1106,38 @@ textarea:focus {
   align-items: center;
   gap: 12px;
 }
-.account-avatar {
-  width: 46px;
-  height: 46px;
+.account-avatar-btn {
+  position: relative;
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
+  flex-shrink: 0;
+  cursor: pointer;
+  overflow: hidden;
+  transition: transform 0.2s var(--ease-spring);
+}
+.account-avatar-btn:hover { transform: scale(1.05); }
+.account-avatar-btn:active { transform: scale(0.95); }
+.account-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
   background: linear-gradient(155deg, var(--teal), var(--amber));
-  color: #0a0a0c;
+}
+.account-avatar-edit {
+  position: absolute;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 1.1rem;
-  flex-shrink: 0;
+  background: rgba(10, 10, 12, 0.55);
+  color: #fff;
+  opacity: 0;
+  transition: opacity 0.2s var(--ease);
 }
+.account-avatar-btn:hover .account-avatar-edit { opacity: 1; }
+.account-avatar-edit svg { width: 18px; height: 18px; }
 .account-name {
   font-weight: 700;
   font-size: 1rem;
