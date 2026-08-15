@@ -253,6 +253,8 @@ svg { display: block; }
 
 input[type="text"],
 input[type="password"],
+input[type="date"],
+select,
 textarea {
   width: 100%;
   background: var(--bg-elevated);
@@ -261,6 +263,7 @@ textarea {
   padding: 13px 14px;
   font-size: 1rem;
   color: var(--text);
+  font-family: inherit;
   transition: border-color 0.18s var(--ease), box-shadow 0.18s var(--ease);
 }
 input[type="text"]::placeholder,
@@ -270,10 +273,29 @@ textarea::placeholder {
 }
 input[type="text"]:focus,
 input[type="password"]:focus,
+input[type="date"]:focus,
+select:focus,
 textarea:focus {
   outline: none;
   border-color: var(--amber);
   box-shadow: 0 0 0 4px var(--amber-soft);
+}
+
+/* the native date picker icon assumes a light background unless told
+   otherwise — this was the main reason the due-date field looked broken
+   on the dark theme */
+input[type="date"] { color-scheme: dark; }
+:root[data-theme="light"] input[type="date"] { color-scheme: light; }
+
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%238c8b93' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 20px;
+  padding-right: 40px;
+  cursor: pointer;
 }
 
 .password-wrap {
@@ -543,21 +565,6 @@ textarea:focus {
 .subject-card:nth-child(5n+4) { --tilt: 1.8deg; }
 .subject-card:nth-child(5n+5) { --tilt: -1.1deg; }
 
-/* every 2nd card gets a slow idle sway — pure flavor. It always resolves
-   back to its own --tilt at the start/end of the cycle so there's no jump
-   when the entrance animation hands off to it, and it fully stops on
-   hover so the straighten-up hover effect stays crisp and clickable. */
-.subject-card:nth-child(5n+2) {
-  animation: cardIn 0.5s var(--ease-pop) both, cardSway 4.5s ease-in-out 0.6s infinite;
-}
-.subject-card:nth-child(5n+2):hover {
-  animation: none;
-}
-@keyframes cardSway {
-  0%, 100% { transform: rotate(var(--tilt, 0deg)); }
-  50% { transform: rotate(calc(var(--tilt, 0deg) + 3deg)); }
-}
-
 @keyframes cardIn {
   from { opacity: 0; transform: translateY(18px) scale(0.9) rotate(0deg); }
   60% { opacity: 1; }
@@ -700,8 +707,10 @@ textarea:focus {
 }
 /* others: avatar on the left, bottom-aligned with the last bubble */
 .msg-group.other .group-row { flex-direction: row; align-items: flex-end; }
-/* own: avatar on the right, top-aligned with the first bubble */
-.msg-group.own .group-row { flex-direction: row-reverse; align-items: flex-start; }
+/* own: avatar on the right, top-aligned with the first bubble — bubbles
+   render first in the DOM so with normal (non-reversed) row direction the
+   avatar naturally lands as the rightmost/outermost element */
+.msg-group.own .group-row { flex-direction: row; align-items: flex-start; }
 
 .group-avatar {
   width: 28px;
@@ -973,28 +982,31 @@ textarea:focus {
 }
 .subject-image-preview-wrap {
   position: relative;
-  width: 100%;
-  max-width: 220px;
+  width: 140px;
+  height: 140px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  flex-shrink: 0;
   animation: cardIn 0.3s var(--ease-pop) both;
 }
 .subject-image-preview {
   width: 100%;
-  border-radius: var(--radius-sm);
+  height: 100%;
   display: block;
-  max-height: 180px;
   object-fit: cover;
 }
 .subject-image-preview-wrap .icon-btn {
   position: absolute;
-  top: -8px;
-  right: -8px;
-  width: 28px;
-  height: 28px;
-  background: var(--danger);
+  top: 6px;
+  right: 6px;
+  width: 26px;
+  height: 26px;
+  background: rgba(10, 10, 12, 0.65);
   color: #fff;
+  backdrop-filter: blur(2px);
 }
-.subject-image-preview-wrap .icon-btn svg { width: 15px; height: 15px; }
-.subject-image-preview-wrap .icon-btn:hover { background: var(--danger); opacity: 0.85; }
+.subject-image-preview-wrap .icon-btn svg { width: 14px; height: 14px; }
+.subject-image-preview-wrap .icon-btn:hover { background: rgba(10, 10, 12, 0.85); }
 
 .modal-actions {
   display: flex;
@@ -1185,6 +1197,93 @@ textarea:focus {
   gap: 10px;
 }
 .suggestion-form textarea { min-height: 90px; }
+
+/* ==========================================================
+   Confirm modal (replaces native window.confirm())
+   ========================================================== */
+.confirm-overlay { align-items: center; }
+.confirm-panel {
+  width: 100%;
+  max-width: 340px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 22px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  animation: modalIn 0.35s var(--ease-spring) both;
+}
+.confirm-message {
+  margin: 0;
+  font-size: 0.98rem;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+/* ==========================================================
+   Mark-as-done (subject_checks)
+   ========================================================== */
+.done-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 4px;
+}
+.btn-done {
+  background: var(--teal-soft);
+  color: var(--teal);
+  justify-content: center;
+}
+.btn-done:hover { opacity: 0.88; }
+.btn-done.checked {
+  background: var(--teal);
+  color: #06231f;
+}
+.btn-done.checked svg { animation: popCheck 0.4s var(--ease-pop); }
+@keyframes popCheck {
+  0% { transform: scale(0.6) rotate(-20deg); }
+  60% { transform: scale(1.25) rotate(8deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+.done-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.done-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+.done-chip svg { width: 12px; height: 12px; color: var(--teal); }
+.done-list-empty {
+  font-size: 0.82rem;
+  color: var(--text-faint);
+}
+
+/* neon glow: subject cards the CURRENT user hasn't checked off yet.
+   Uses --card-glow (a translucent rgba of that subject's own color, set
+   inline per card) so every subject glows in its own color, not one
+   fixed accent. */
+.subject-card.not-done {
+  animation: cardIn 0.5s var(--ease-pop) both, neonPulse 2.2s ease-in-out infinite;
+}
+@keyframes neonPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 1.5px var(--card-accent, var(--amber)), 0 0 14px 1px var(--card-glow, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 1.5px var(--card-accent, var(--amber)), 0 0 24px 5px var(--card-glow, transparent);
+  }
+}
 
 /* ==========================================================
    Toast

@@ -150,7 +150,9 @@
     <form id="subjectForm" class="modal-form">
       <label class="field">
         <span class="field-label">Subject</span>
-        <input id="subjectNameInput" type="text" placeholder="e.g. Calculus 2" required />
+        <select id="subjectNameInput" required>
+          <option value="" disabled selected>Piliin ang subject</option>
+        </select>
       </label>
 
       <label class="field field-grow">
@@ -196,6 +198,14 @@
       </div>
       <div id="subjectViewContent" class="subject-view-content"></div>
       <div id="subjectViewMeta" class="subject-view-meta"></div>
+
+      <div class="done-section">
+        <button type="button" id="markDoneBtn" class="btn btn-done">
+          <i data-lucide="check-circle-2"></i>
+          <span id="markDoneBtnLabel">Tapos na ako dito</span>
+        </button>
+        <div id="doneList" class="done-list"></div>
+      </div>
 
       <div class="modal-actions">
         <button type="button" id="deleteSubjectBtn" class="btn btn-danger-ghost" hidden>
@@ -257,6 +267,17 @@
           </button>
         </form>
       </section>
+    </div>
+  </div>
+</div>
+
+<!-- ============== CONFIRM MODAL (replaces native confirm()) ============== -->
+<div id="confirmOverlay" class="modal-overlay confirm-overlay" hidden>
+  <div class="confirm-panel" role="alertdialog" aria-modal="true" aria-labelledby="confirmMessage">
+    <p id="confirmMessage" class="confirm-message"></p>
+    <div class="modal-actions">
+      <button type="button" id="confirmCancelBtn" class="btn btn-ghost">Cancel</button>
+      <button type="button" id="confirmOkBtn" class="btn btn-primary">Yes</button>
     </div>
   </div>
 </div>

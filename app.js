@@ -20,6 +20,30 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 // private group tool. Don't rely on it to protect anything sensitive.
 const GATE_PASSWORD = "koleheyo";
 
+// The real subject list, read off Ray's class schedule photo — colors match
+// that schedule's color-coding so Subjects/Calendar/Recap all speak the
+// same visual language.
+const SUBJECT_COLORS = {
+  "Computer Programming": "#6b6b74",
+  "Introduction to Computing": "#4d7ea8",
+  "Understanding the Self": "#c99a2e",
+  "Purposive Communication": "#8b7cc9",
+  "Philippine Popular Culture": "#d6478f",
+  "The Contemporary World": "#c9b382",
+  "National Service Training Program": "#5cb88a",
+  "PE": "#6fb3d9",
+  "Euthenics 1": "#d99384",
+};
+const SUBJECT_LIST = Object.keys(SUBJECT_COLORS);
+
+function hexToRgba(hex, alpha) {
+  const h = hex.replace("#", "");
+  const r = parseInt(h.substring(0, 2), 16);
+  const g = parseInt(h.substring(2, 4), 16);
+  const b = parseInt(h.substring(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 const LS_KEYS = {
   userId: "klase_user_id",
   userName: "klase_user_name",
@@ -114,6 +138,37 @@ function showToast(message, variant = "default") {
     el.classList.add("leaving");
     setTimeout(() => { el.hidden = true; }, 220);
   }, 2600);
+}
+
+// ============================================================
+// Confirm modal — replaces window.confirm() with an in-app UI modal.
+// Usage: const ok = await showConfirm("Sigurado ka ba?"); if (!ok) return;
+// ============================================================
+
+let confirmResolve = null;
+
+function showConfirm(message) {
+  return new Promise((resolve) => {
+    confirmResolve = resolve;
+    $("#confirmMessage").textContent = message;
+    $("#confirmOverlay").hidden = false;
+  });
+}
+
+function settleConfirm(result) {
+  $("#confirmOverlay").hidden = true;
+  if (confirmResolve) {
+    confirmResolve(result);
+    confirmResolve = null;
+  }
+}
+
+function initConfirmModal() {
+  $("#confirmOkBtn").addEventListener("click", () => settleConfirm(true));
+  $("#confirmCancelBtn").addEventListener("click", () => settleConfirm(false));
+  $("#confirmOverlay").addEventListener("click", (e) => {
+    if (e.target.id === "confirmOverlay") settleConfirm(false);
+  });
 }
 
 // ============================================================
@@ -314,6 +369,23 @@ function initNav() {
 
 let subjectsCache = [];
 let pendingSubjectImageFile = null;
+let subjectChecksCache = new Map(); // subject_id -> [{userId, userName}]
+let currentlyViewedSubjectId = null;
+
+function populateSubjectOptions() {
+  const select = $("#subjectNameInput");
+  SUBJECT_LIST.forEach((name) => {
+    const opt = document.createElement("option");
+    opt.value = name;
+    opt.textContent = name;
+    select.appendChild(opt);
+  });
+}
+
+function iAmDoneWith(subjectId) {
+  const list = subjectChecksCache.get(subjectId);
+  return !!(list && currentSession && list.some((c) => c.userId === currentSession.userId));
+}
 
 function renderSubjects() {
   const grid = $("#subjectsGrid");
@@ -327,19 +399,18 @@ function renderSubjects() {
   empty.hidden = true;
 
   subjectsCache.forEach((subj) => {
+    const color = SUBJECT_COLORS[subj.subject_name] || "#f2a33d";
+
     const card = document.createElement("button");
     card.type = "button";
-    card.className = "subject-card";
-    card.style.setProperty(
-      "--card-accent",
-      subj.id.charCodeAt(0) % 2 === 0
-        ? getComputedStyle(document.documentElement).getPropertyValue("--teal")
-        : getComputedStyle(document.documentElement).getPropertyValue("--amber")
-    );
+    card.className = "subject-card" + (iAmDoneWith(subj.id) ? "" : " not-done");
+    card.style.setProperty("--card-accent", color);
+    card.style.setProperty("--card-glow", hexToRgba(color, 0.55));
 
     const name = document.createElement("div");
     name.className = "subject-card-name";
     name.textContent = subj.subject_name;
+    name.style.color = color;
     card.appendChild(name);
 
     if (subj.image_url) {
@@ -404,6 +475,91 @@ async function fetchSubjects() {
   renderSubjects();
 }
 
+async function fetchSubjectChecks() {
+  const { data, error } = await sb.from("subject_checks").select("*");
+  if (error) {
+    console.error(error);
+    return;
+  }
+  const map = new Map();
+  (data || []).forEach((row) => {
+    const list = map.get(row.subject_id) || [];
+    list.push({ userId: row.user_id, userName: row.user_name });
+    map.set(row.subject_id, list);
+  });
+  subjectChecksCache = map;
+  renderSubjects();
+  if (currentlyViewedSubjectId) renderDoneSection(currentlyViewedSubjectId);
+}
+
+function renderDoneSection(subjectId) {
+  const list = subjectChecksCache.get(subjectId) || [];
+  const iAmDone = iAmDoneWith(subjectId);
+
+  const btn = $("#markDoneBtn");
+  btn.classList.toggle("checked", iAmDone);
+  $("#markDoneBtnLabel").textContent = iAmDone ? "Tapos ka na dito" : "Tapos na ako dito";
+  btn.dataset.id = subjectId;
+
+  const doneList = $("#doneList");
+  doneList.innerHTML = "";
+  if (list.length === 0) {
+    const empty = document.createElement("span");
+    empty.className = "done-list-empty";
+    empty.textContent = "Wala pang tapos dito.";
+    doneList.appendChild(empty);
+  } else {
+    list.forEach((c) => {
+      const chip = document.createElement("span");
+      chip.className = "done-chip";
+      chip.innerHTML = '<i data-lucide="check"></i>';
+      chip.append(c.userName);
+      doneList.appendChild(chip);
+    });
+  }
+  refreshIcons();
+}
+
+async function handleToggleDone() {
+  if (!currentSession) return;
+  const subjectId = $("#markDoneBtn").dataset.id;
+  if (!subjectId) return;
+
+  const already = iAmDoneWith(subjectId);
+
+  if (already) {
+    // unchecking is a quick undo, no confirmation needed
+    const { error } = await sb
+      .from("subject_checks")
+      .delete()
+      .eq("subject_id", subjectId)
+      .eq("user_id", currentSession.userId);
+    if (error) {
+      console.error(error);
+      showToast("May error, subukan ulit.", "error");
+      return;
+    }
+    await fetchSubjectChecks();
+    return;
+  }
+
+  const ok = await showConfirm("Sigurado ka bang tapos ka na dito?");
+  if (!ok) return;
+
+  const { error } = await sb.from("subject_checks").insert({
+    subject_id: subjectId,
+    user_id: currentSession.userId,
+    user_name: currentSession.name,
+  });
+  if (error) {
+    console.error(error);
+    showToast("May error, subukan ulit.", "error");
+    return;
+  }
+  burstConfetti($("#markDoneBtn"));
+  await fetchSubjectChecks();
+}
+
 function resetSubjectImagePicker() {
   pendingSubjectImageFile = null;
   $("#subjectImagePreviewWrap").hidden = true;
@@ -420,14 +576,15 @@ function openAddSubjectModal() {
 
   $("#subjectModal").hidden = false;
   refreshIcons();
-  setTimeout(() => $("#subjectNameInput").focus(), 80);
 }
 
 /** Clicking an existing card only ever opens a read-only view — editing
  *  isn't offered. Only someone whose profile position is "developer" gets
  *  a Delete button here. */
 function openViewSubjectModal(subj) {
+  currentlyViewedSubjectId = subj.id;
   $("#modalTitle").textContent = subj.subject_name;
+  $("#modalTitle").style.color = SUBJECT_COLORS[subj.subject_name] || "";
   $("#subjectForm").hidden = true;
   $("#subjectViewBody").hidden = false;
 
@@ -451,6 +608,8 @@ function openViewSubjectModal(subj) {
     : timeAgo(subj.updated_at || subj.created_at);
   meta.append(author, time);
 
+  renderDoneSection(subj.id);
+
   const deleteBtn = $("#deleteSubjectBtn");
   const canDelete = (currentSession?.position || "").trim().toLowerCase() === "developer";
   deleteBtn.hidden = !canDelete;
@@ -462,11 +621,13 @@ function openViewSubjectModal(subj) {
 
 function closeSubjectModal() {
   $("#subjectModal").hidden = true;
+  $("#modalTitle").style.color = "";
+  currentlyViewedSubjectId = null;
 }
 
 async function handleSubjectSubmit(e) {
   e.preventDefault();
-  const subject_name = $("#subjectNameInput").value.trim();
+  const subject_name = $("#subjectNameInput").value;
   const content = $("#subjectContentInput").value.trim();
   if (!subject_name || !content) return;
 
@@ -479,11 +640,11 @@ async function handleSubjectSubmit(e) {
   try {
     let image_url = null;
     if (pendingSubjectImageFile) {
-      const blob = await compressImage(pendingSubjectImageFile);
+      const { blob, contentType } = await prepareImageForUpload(pendingSubjectImageFile);
       const path = `${currentSession.userId}/${Date.now()}-${uuid()}.jpg`;
       const { error: upErr } = await sb.storage
         .from("subject-images")
-        .upload(path, blob, { contentType: "image/jpeg", upsert: false });
+        .upload(path, blob, { contentType, upsert: false });
       if (upErr) throw upErr;
       const { data: urlData } = sb.storage.from("subject-images").getPublicUrl(path);
       image_url = urlData.publicUrl;
@@ -513,7 +674,8 @@ async function handleSubjectSubmit(e) {
 async function handleDeleteSubject() {
   const id = $("#deleteSubjectBtn").dataset.id;
   if (!id) return;
-  if (!confirm("Sigurado ka bang tatanggalin ito?")) return;
+  const ok = await showConfirm("Sigurado ka bang tatanggalin ito?");
+  if (!ok) return;
 
   const cardEl = $(`#subjectsGrid .subject-card[data-id="${id}"]`);
   if (cardEl) cardEl.classList.add("removing");
@@ -530,6 +692,8 @@ async function handleDeleteSubject() {
 }
 
 function initSubjects() {
+  populateSubjectOptions();
+
   $("#addSubjectBtn").addEventListener("click", openAddSubjectModal);
   $("#closeModalBtn").addEventListener("click", closeSubjectModal);
   $("#cancelSubjectBtn").addEventListener("click", closeSubjectModal);
@@ -539,6 +703,7 @@ function initSubjects() {
   });
   $("#subjectForm").addEventListener("submit", handleSubjectSubmit);
   $("#deleteSubjectBtn").addEventListener("click", handleDeleteSubject);
+  $("#markDoneBtn").addEventListener("click", handleToggleDone);
 
   const contentInput = $("#subjectContentInput");
   contentInput.addEventListener("input", () => {
@@ -799,6 +964,22 @@ function compressImage(file, maxDim = 1600, quality = 0.82) {
   });
 }
 
+/** Tries to compress/re-encode the image for a smaller upload. Some files
+ *  (notably HEIC photos straight off an iPhone) can't be decoded by the
+ *  browser's <canvas> at all, which used to make the whole upload fail —
+ *  this falls back to uploading the original file untouched instead of
+ *  failing outright. */
+async function prepareImageForUpload(file, maxDim = 1600, quality = 0.82) {
+  try {
+    const blob = await compressImage(file, maxDim, quality);
+    return { blob, contentType: "image/jpeg", ext: "jpg" };
+  } catch (err) {
+    console.warn("Image compression failed, uploading original file instead:", err);
+    const ext = (file.name && file.name.includes(".")) ? file.name.split(".").pop() : "jpg";
+    return { blob: file, contentType: file.type || "application/octet-stream", ext };
+  }
+}
+
 async function sendImageMessage(session, file) {
   if (!file || !file.type.startsWith("image/")) return;
   if (file.size > 15 * 1024 * 1024) {
@@ -830,12 +1011,12 @@ async function sendImageMessage(session, file) {
   scrollChatToBottom();
 
   try {
-    const blob = await compressImage(file);
+    const { blob, contentType } = await prepareImageForUpload(file);
     const path = `${session.userId}/${Date.now()}-${uuid()}.jpg`;
 
     const { error: upErr } = await sb.storage
       .from("chat-images")
-      .upload(path, blob, { contentType: "image/jpeg", upsert: false });
+      .upload(path, blob, { contentType, upsert: false });
     if (upErr) throw upErr;
 
     const { data: urlData } = sb.storage.from("chat-images").getPublicUrl(path);
@@ -959,12 +1140,12 @@ async function handleAvatarChange(file) {
   }
 
   try {
-    const blob = await compressImage(file, 512, 0.85);
-    const path = `${currentSession.userId}/${Date.now()}.jpg`;
+    const { blob, contentType, ext } = await prepareImageForUpload(file, 512, 0.85);
+    const path = `${currentSession.userId}/${Date.now()}.${ext}`;
 
     const { error: upErr } = await sb.storage
       .from("avatars")
-      .upload(path, blob, { contentType: "image/jpeg", upsert: true });
+      .upload(path, blob, { contentType, upsert: true });
     if (upErr) throw upErr;
 
     const { data: urlData } = sb.storage.from("avatars").getPublicUrl(path);
@@ -1086,12 +1267,20 @@ function initSettings(session) {
 let subjectsChannel = null;
 let chatChannel = null;
 let profileChannel = null;
+let subjectChecksChannel = null;
 
 function setupRealtime(session) {
   subjectsChannel = sb
     .channel("public:subjects")
     .on("postgres_changes", { event: "*", schema: "public", table: "subjects" }, () => {
       fetchSubjects();
+    })
+    .subscribe();
+
+  subjectChecksChannel = sb
+    .channel("public:subject_checks")
+    .on("postgres_changes", { event: "*", schema: "public", table: "subject_checks" }, () => {
+      fetchSubjectChecks();
     })
     .subscribe();
 
@@ -1130,9 +1319,11 @@ function teardownRealtime() {
   if (subjectsChannel) sb.removeChannel(subjectsChannel);
   if (chatChannel) sb.removeChannel(chatChannel);
   if (profileChannel) sb.removeChannel(profileChannel);
+  if (subjectChecksChannel) sb.removeChannel(subjectChecksChannel);
   subjectsChannel = null;
   chatChannel = null;
   profileChannel = null;
+  subjectChecksChannel = null;
 }
 
 // ============================================================
@@ -1156,6 +1347,7 @@ async function enterApp(rawSession) {
   }
 
   fetchSubjects();
+  fetchSubjectChecks();
   fetchChat(session);
   setupRealtime(session);
   refreshIcons();
@@ -1166,6 +1358,7 @@ function init() {
   initGate();
   initNav();
   initSubjects();
+  initConfirmModal();
 
   $("#themeToggle").addEventListener("click", (e) => toggleTheme(e, $("#themeToggle")));
 
