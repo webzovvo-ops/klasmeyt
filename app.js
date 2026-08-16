@@ -176,6 +176,7 @@ const LS_KEYS = {
   userName: "klase_user_name",
   authed: "klase_authed",
   theme: "klase_theme",
+  installDismissed: "klase_install_banner_dismissed",
 };
 
 // the live, Supabase-synced identity of whoever is using the app right now —
@@ -1746,6 +1747,93 @@ async function enterApp(rawSession) {
   refreshIcons();
 }
 
+// ============================================================
+// PWA install prompt — a custom in-app "Install app" UI, since the
+// browser's own hidden menu option wasn't a reliable enough path for
+// people to actually find and use.
+// ============================================================
+
+let deferredInstallPrompt = null;
+
+function isStandaloneDisplay() {
+  return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+}
+
+function isIOSDevice() {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+}
+
+function updateInstallUI() {
+  const banner = $("#installBanner");
+  const settingsBtn = $("#settingsInstallBtn");
+  const settingsHint = $("#settingsInstallHint");
+
+  settingsBtn.hidden = false;
+  settingsBtn.disabled = false;
+
+  if (isStandaloneDisplay()) {
+    banner.hidden = true;
+    settingsBtn.hidden = true;
+    settingsHint.textContent = "Naka-install na ang app sa device mo.";
+    return;
+  }
+
+  if (deferredInstallPrompt) {
+    settingsHint.textContent = "";
+    if (!localStorage.getItem(LS_KEYS.installDismissed)) banner.hidden = false;
+    return;
+  }
+
+  if (isIOSDevice()) {
+    // iOS Safari never fires beforeinstallprompt — there's nothing to
+    // trigger programmatically, so just show the manual steps instead
+    // of a button that would do nothing.
+    banner.hidden = true;
+    settingsBtn.hidden = true;
+    settingsHint.textContent = 'Sa Safari: pindutin ang Share button, tapos piliin ang "Add to Home Screen".';
+    return;
+  }
+
+  banner.hidden = true;
+  settingsBtn.disabled = true;
+  settingsHint.textContent = "Hindi pa available ang install ngayon — i-refresh ang page.";
+}
+
+async function triggerInstall() {
+  if (!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  const choice = await deferredInstallPrompt.userChoice;
+  deferredInstallPrompt = null;
+  if (choice.outcome === "accepted") {
+    showToast("Ina-install na ang app!");
+  }
+  updateInstallUI();
+}
+
+function initInstallPrompt() {
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    updateInstallUI();
+  });
+
+  window.addEventListener("appinstalled", () => {
+    deferredInstallPrompt = null;
+    localStorage.removeItem(LS_KEYS.installDismissed);
+    updateInstallUI();
+    showToast("Na-install na ang Klase!");
+  });
+
+  $("#installBannerBtn").addEventListener("click", triggerInstall);
+  $("#installBannerDismissBtn").addEventListener("click", () => {
+    $("#installBanner").hidden = true;
+    localStorage.setItem(LS_KEYS.installDismissed, "1");
+  });
+  $("#settingsInstallBtn").addEventListener("click", triggerInstall);
+
+  updateInstallUI();
+}
+
 function init() {
   initTheme();
   initGate();
@@ -1753,6 +1841,7 @@ function init() {
   initSubjects();
   initRecap();
   initConfirmModal();
+  initInstallPrompt();
 
   $("#themeToggle").addEventListener("click", (e) => toggleTheme(e, $("#themeToggle")));
 

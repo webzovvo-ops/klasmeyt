@@ -22,6 +22,19 @@
 </head>
 <body>
 
+<!-- ============== INSTALL PROMPT BANNER (auto-shows when installable) ============== -->
+<div id="installBanner" class="install-banner" hidden>
+  <img src="icons/icon-192.png" alt="" class="install-banner-icon" />
+  <div class="install-banner-text">
+    <strong>I-install ang Klase</strong>
+    <span>Mas mabilis, gumagana kahit offline.</span>
+  </div>
+  <button type="button" id="installBannerBtn" class="btn btn-primary btn-sm">Install</button>
+  <button type="button" id="installBannerDismissBtn" class="icon-btn ghost" aria-label="Dismiss">
+    <i data-lucide="x"></i>
+  </button>
+</div>
+
 <!-- ============== LOGIN GATE ============== -->
 <div id="authGate" class="gate">
   <div class="gate-card">
@@ -342,6 +355,15 @@
           <i data-lucide="log-out"></i>
           <span>Bye Bye</span>
         </button>
+      </section>
+
+      <section class="settings-section">
+        <span class="field-label">App</span>
+        <button type="button" id="settingsInstallBtn" class="btn btn-primary btn-full">
+          <i data-lucide="download"></i>
+          <span>Install app</span>
+        </button>
+        <p id="settingsInstallHint" class="field-hint"></p>
       </section>
 
       <section class="settings-section">
