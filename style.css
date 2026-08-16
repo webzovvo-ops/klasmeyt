@@ -30,10 +30,10 @@
   --text-muted: #8c8b93;
   --text-faint: #5c5b62;
 
-  --amber: #f2c53d;
-  --amber-soft: rgba(242, 197, 61, 0.14);
-  --teal: #4a90e2;
-  --teal-soft: rgba(74, 144, 226, 0.14);
+  --amber: #d9ab3d;
+  --amber-soft: rgba(217, 171, 61, 0.14);
+  --teal: #3d7dc4;
+  --teal-soft: rgba(61, 125, 196, 0.14);
   --danger: #e5636a;
   --danger-soft: rgba(229, 99, 106, 0.14);
 
@@ -41,7 +41,7 @@
   --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.55);
   --overlay: rgba(6, 6, 8, 0.65);
 
-  --bubble-own: linear-gradient(155deg, #f2c53d, #d9a716);
+  --bubble-own: linear-gradient(155deg, #d9ab3d, #b98d24);
   --bubble-own-text: #1a1103;
   --bubble-other: var(--surface-2);
   --bubble-other-text: var(--text);
@@ -57,10 +57,10 @@
   --text-muted: #6c6b72;
   --text-faint: #a3a2a8;
 
-  --amber: #a8790a;
-  --amber-soft: rgba(168, 121, 10, 0.10);
-  --teal: #2563c9;
-  --teal-soft: rgba(37, 99, 201, 0.10);
+  --amber: #9c7211;
+  --amber-soft: rgba(156, 114, 17, 0.10);
+  --teal: #1f4e96;
+  --teal-soft: rgba(31, 78, 150, 0.10);
   --danger: #cf3f47;
   --danger-soft: rgba(207, 63, 71, 0.10);
 
@@ -68,7 +68,7 @@
   --shadow-lg: 0 20px 50px rgba(20, 18, 10, 0.12);
   --overlay: rgba(30, 28, 22, 0.35);
 
-  --bubble-own: linear-gradient(155deg, #d9a716, #a8790a);
+  --bubble-own: linear-gradient(155deg, #b98d24, #8f6c17);
   --bubble-own-text: #fffaf0;
   --bubble-other: var(--surface-2);
   --bubble-other-text: var(--text);
@@ -1487,3 +1487,60 @@ select {
 }
 .install-banner .btn-sm { flex-shrink: 0; }
 .install-banner .icon-btn { flex-shrink: 0; width: 32px; height: 32px; }
+
+/* ==========================================================
+   Secret admin panel — tap the "Settings" title (developer
+   position only) to reveal the full user list
+   ========================================================== */
+#settingsTitle { cursor: pointer; user-select: none; }
+
+.admin-users-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: 22px;
+  border-bottom: 1px dashed var(--border);
+  animation: cardIn 0.3s var(--ease-pop) both;
+}
+.admin-users-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+.admin-user-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 9px;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+}
+.admin-user-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: var(--surface);
+}
+.admin-user-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.admin-user-name {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.admin-user-position {
+  font-size: 0.68rem;
+  color: var(--amber);
+  text-transform: capitalize;
+}

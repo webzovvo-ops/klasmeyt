@@ -1428,7 +1428,8 @@ async function sendImageMessage(session, file) {
   } catch (err) {
     console.error(err);
     placeholder.remove();
-    showToast("Hindi na-send ang image. Check ang Storage setup.", "error");
+    const detail = err?.message ? ` (${err.message})` : "";
+    showToast(`Hindi na-send ang image${detail}`, "error");
   }
 }
 
@@ -1548,7 +1549,8 @@ async function handleAvatarChange(file) {
     showToast("Na-update ang profile picture.");
   } catch (err) {
     console.error(err);
-    showToast("Hindi na-upload ang photo. Check ang Storage setup.", "error");
+    const detail = err?.message ? ` (${err.message})` : "";
+    showToast(`Hindi na-upload ang photo${detail}`, "error");
   }
 }
 
@@ -1569,6 +1571,8 @@ function openSettings(session) {
 
 function closeSettings() {
   $("#settingsOverlay").hidden = true;
+  $("#adminUsersPanel").hidden = true;
+  adminPanelOpen = false;
   const btn = $("#settingsBtn");
   btn.classList.remove("menu-open");
   btn.innerHTML = '<i data-lucide="menu"></i>';
@@ -1634,8 +1638,10 @@ function initSettings(session) {
     if (e.target.id === "settingsOverlay") closeSettings();
   });
   $("#drawerLogoutBtn").addEventListener("click", () => {
-    closeSettings();
-    logout();
+    // logging out is intentionally disabled — accounts are meant to be
+    // permanent per device. The only way one goes away is if it's deleted
+    // directly in Supabase.
+    showToast("Para matanggal ang account mo, sabihin sa developer/admin.");
   });
   $("#suggestionForm").addEventListener("submit", (e) => handleSuggestionSubmit(e, session));
 
@@ -1645,6 +1651,67 @@ function initSettings(session) {
     e.target.value = "";
     if (file) handleAvatarChange(file);
   });
+
+  $("#settingsTitle").addEventListener("click", toggleAdminUsersPanel);
+}
+
+/** Secret: tapping the "Settings" title reveals the full user list, but
+ *  only for someone whose own profile position is "developer" — everyone
+ *  else's tap does nothing, silently. */
+let adminPanelOpen = false;
+
+async function toggleAdminUsersPanel() {
+  if ((currentSession?.position || "").trim().toLowerCase() !== "developer") return;
+  adminPanelOpen = !adminPanelOpen;
+  $("#adminUsersPanel").hidden = !adminPanelOpen;
+  if (adminPanelOpen) await loadAdminUsers();
+}
+
+async function loadAdminUsers() {
+  const list = $("#adminUsersList");
+  list.innerHTML = '<span class="about-credits-empty">Loading...</span>';
+
+  const { data, error } = await sb
+    .from("profiles")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error(error);
+    list.innerHTML = '<span class="about-credits-empty">Hindi ma-load ang users.</span>';
+    return;
+  }
+
+  list.innerHTML = "";
+  (data || []).forEach((u) => {
+    const row = document.createElement("div");
+    row.className = "admin-user-row";
+
+    const avatar = document.createElement("img");
+    avatar.className = "admin-user-avatar";
+    avatar.src = u.avatar_url || DEFAULT_AVATAR_DATA_URI;
+    avatar.alt = "";
+
+    const info = document.createElement("div");
+    info.className = "admin-user-info";
+    const name = document.createElement("div");
+    name.className = "admin-user-name";
+    name.textContent = u.name;
+    info.appendChild(name);
+    if (u.position) {
+      const pos = document.createElement("span");
+      pos.className = "admin-user-position";
+      pos.textContent = u.position;
+      info.appendChild(pos);
+    }
+
+    row.append(avatar, info);
+    list.appendChild(row);
+  });
+
+  if ((data || []).length === 0) {
+    list.innerHTML = '<span class="about-credits-empty">Wala pang users.</span>';
+  }
 }
 
 // ============================================================
