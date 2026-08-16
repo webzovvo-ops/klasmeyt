@@ -30,10 +30,10 @@
   --text-muted: #8c8b93;
   --text-faint: #5c5b62;
 
-  --amber: #f2a33d;
-  --amber-soft: rgba(242, 163, 61, 0.14);
-  --teal: #2bb3a3;
-  --teal-soft: rgba(43, 179, 163, 0.14);
+  --amber: #f2c53d;
+  --amber-soft: rgba(242, 197, 61, 0.14);
+  --teal: #4a90e2;
+  --teal-soft: rgba(74, 144, 226, 0.14);
   --danger: #e5636a;
   --danger-soft: rgba(229, 99, 106, 0.14);
 
@@ -41,7 +41,7 @@
   --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.55);
   --overlay: rgba(6, 6, 8, 0.65);
 
-  --bubble-own: linear-gradient(155deg, #f2a33d, #d98a24);
+  --bubble-own: linear-gradient(155deg, #f2c53d, #d9a716);
   --bubble-own-text: #1a1103;
   --bubble-other: var(--surface-2);
   --bubble-other-text: var(--text);
@@ -57,10 +57,10 @@
   --text-muted: #6c6b72;
   --text-faint: #a3a2a8;
 
-  --amber: #c9770a;
-  --amber-soft: rgba(201, 119, 10, 0.10);
-  --teal: #0f8a7c;
-  --teal-soft: rgba(15, 138, 124, 0.10);
+  --amber: #a8790a;
+  --amber-soft: rgba(168, 121, 10, 0.10);
+  --teal: #2563c9;
+  --teal-soft: rgba(37, 99, 201, 0.10);
   --danger: #cf3f47;
   --danger-soft: rgba(207, 63, 71, 0.10);
 
@@ -68,8 +68,8 @@
   --shadow-lg: 0 20px 50px rgba(20, 18, 10, 0.12);
   --overlay: rgba(30, 28, 22, 0.35);
 
-  --bubble-own: linear-gradient(155deg, #d98a24, #c9770a);
-  --bubble-own-text: #fff7ea;
+  --bubble-own: linear-gradient(155deg, #d9a716, #a8790a);
+  --bubble-own-text: #fffaf0;
   --bubble-other: var(--surface-2);
   --bubble-other-text: var(--text);
 }
@@ -870,7 +870,7 @@ select {
   position: absolute;
   top: 8px;
   height: calc(var(--nav-h) - 24px);
-  width: 50%;
+  width: 25%;
   background: var(--amber-soft);
   border-radius: var(--radius-sm);
   transition: transform 0.42s var(--ease-spring);
@@ -884,15 +884,16 @@ select {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 3px;
   color: var(--text-muted);
-  font-size: 0.72rem;
+  font-size: 0.64rem;
   font-weight: 600;
+  padding: 0 2px;
   transition: color 0.2s var(--ease);
   z-index: 1;
 }
 .nav-btn svg {
-  width: 21px; height: 21px;
+  width: 19px; height: 19px;
   transition: transform 0.25s var(--ease);
 }
 .nav-btn[aria-current="page"] { color: var(--amber); }
@@ -1339,4 +1340,89 @@ select {
 
 @media (max-width: 420px) {
   .subjects-grid { grid-template-columns: 1fr; }
+}
+
+/* ==========================================================
+   Calendar view — weekly timetable, styled after the real
+   class schedule photo
+   ========================================================== */
+
+.calendar-scroll {
+  flex: 1;
+  overflow: auto;
+  padding: 14px 14px calc(var(--nav-h) + 20px);
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: 50px repeat(5, minmax(62px, 1fr));
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  min-width: 380px;
+}
+
+.cal-corner,
+.cal-day-header {
+  background: var(--bg-elevated);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.cal-day-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.74rem;
+  font-weight: 700;
+  font-family: var(--font-display);
+  color: var(--text-muted);
+  padding: 7px 2px;
+}
+
+.cal-time-label {
+  background: var(--bg-elevated);
+  font-size: 0.6rem;
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding: 2px 6px 0 0;
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  white-space: nowrap;
+}
+
+.cal-cell-bg { background: var(--surface); }
+
+.cal-block {
+  margin: 1px;
+  border-radius: 7px;
+  border: 1.5px solid;
+  padding: 4px 6px;
+  overflow: hidden;
+  font-size: 0.64rem;
+  line-height: 1.25;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  animation: cardIn 0.4s var(--ease-pop) both;
+}
+.cal-block-name {
+  font-weight: 700;
+  font-family: var(--font-display);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+.cal-block-meta {
+  font-size: 0.58rem;
+  opacity: 0.85;
+  font-family: var(--font-mono);
 }

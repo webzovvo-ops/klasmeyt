@@ -101,6 +101,32 @@
       <div id="subjectsGrid" class="subjects-grid"></div>
     </section>
 
+    <!-- ---------- RECAP VIEW ---------- -->
+    <section id="recapView" class="view hidden-view">
+      <div class="view-toolbar">
+        <p class="view-hint">Lesson recaps para sa review.</p>
+        <button id="addRecapBtn" class="btn btn-primary btn-sm">
+          <i data-lucide="plus"></i>
+          <span>Add</span>
+        </button>
+      </div>
+
+      <div id="recapEmpty" class="empty-state" hidden>
+        <i data-lucide="graduation-cap"></i>
+        <p>Wala pang recap.</p>
+        <p class="empty-sub">Pindutin ang "Add" para maglagay ng una.</p>
+      </div>
+
+      <div id="recapGrid" class="subjects-grid"></div>
+    </section>
+
+    <!-- ---------- CALENDAR VIEW ---------- -->
+    <section id="calendarView" class="view hidden-view">
+      <div class="calendar-scroll">
+        <div id="calendarGrid" class="calendar-grid"></div>
+      </div>
+    </section>
+
     <!-- ---------- CHATS VIEW ---------- -->
     <section id="chatsView" class="view hidden-view">
       <div id="chatMessages" class="chat-messages"></div>
@@ -128,6 +154,14 @@
     <button class="nav-btn" data-view="subjects" aria-current="page">
       <i data-lucide="book-open"></i>
       <span>Subjects</span>
+    </button>
+    <button class="nav-btn" data-view="recap">
+      <i data-lucide="graduation-cap"></i>
+      <span>Recap</span>
+    </button>
+    <button class="nav-btn" data-view="calendar">
+      <i data-lucide="calendar-days"></i>
+      <span>Calendar</span>
     </button>
     <button class="nav-btn" data-view="chats">
       <i data-lucide="message-circle"></i>
@@ -214,6 +248,64 @@
         </button>
         <div class="modal-actions-right">
           <button type="button" id="closeViewBtn" class="btn btn-ghost">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============== RECAP MODAL ============== -->
+<div id="recapModal" class="modal-overlay" hidden>
+  <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="recapModalTitle">
+    <div class="modal-header">
+      <h2 id="recapModalTitle">Add recap</h2>
+      <button id="closeRecapModalBtn" class="icon-btn ghost" aria-label="Close">
+        <i data-lucide="x"></i>
+      </button>
+    </div>
+
+    <!-- ADD form -->
+    <form id="recapForm" class="modal-form">
+      <label class="field">
+        <span class="field-label">Subject</span>
+        <select id="recapSubjectInput" required>
+          <option value="" disabled selected>Piliin ang subject</option>
+        </select>
+      </label>
+
+      <label class="field">
+        <span class="field-label">Title</span>
+        <input id="recapTitleInput" type="text" placeholder="e.g. Chapter 3 recap" required />
+      </label>
+
+      <label class="field field-grow">
+        <span class="field-label">Notes</span>
+        <textarea id="recapContentInput" placeholder="I-type dito ang recap o reviewer..." required></textarea>
+      </label>
+
+      <div class="modal-actions">
+        <div class="modal-actions-right">
+          <button type="button" id="cancelRecapBtn" class="btn btn-ghost">Cancel</button>
+          <button type="submit" class="btn btn-primary">
+            <i data-lucide="check"></i>
+            <span>Save</span>
+          </button>
+        </div>
+      </div>
+    </form>
+
+    <!-- VIEW body: read-only -->
+    <div id="recapViewBody" class="subject-view-body" hidden>
+      <div id="recapViewContent" class="subject-view-content"></div>
+      <div id="recapViewMeta" class="subject-view-meta"></div>
+
+      <div class="modal-actions">
+        <button type="button" id="deleteRecapBtn" class="btn btn-danger-ghost" hidden>
+          <i data-lucide="trash-2"></i>
+          <span>Delete</span>
+        </button>
+        <div class="modal-actions-right">
+          <button type="button" id="closeRecapViewBtn" class="btn btn-ghost">Close</button>
         </div>
       </div>
     </div>

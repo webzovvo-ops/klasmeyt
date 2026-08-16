@@ -36,6 +36,118 @@ const SUBJECT_COLORS = {
 };
 const SUBJECT_LIST = Object.keys(SUBJECT_COLORS);
 
+// Class schedule, read off the actual timetable photo — powers the
+// Calendar tab. Times are 24h "HH:MM".
+const SCHEDULE = [
+  { day: "Mon", subject: "Computer Programming", room: "LabE", start: "07:00", end: "10:00" },
+  { day: "Mon", subject: "Introduction to Computing", room: "LabF", start: "10:00", end: "13:00" },
+  { day: "Mon", subject: "Understanding the Self", room: "B201", start: "13:00", end: "15:00" },
+  { day: "Mon", subject: "Purposive Communication", room: "B403", start: "16:00", end: "18:00" },
+
+  { day: "Tue", subject: "Philippine Popular Culture", room: "B302", start: "07:00", end: "08:00" },
+  { day: "Tue", subject: "The Contemporary World", room: "B401", start: "08:00", end: "10:00" },
+  { day: "Tue", subject: "National Service Training Program", room: "B201", start: "11:00", end: "13:00" },
+
+  { day: "Wed", subject: "PE", room: "Court B", start: "14:30", end: "17:00" },
+  { day: "Wed", subject: "Euthenics 1", room: "A203", start: "17:30", end: "18:30" },
+
+  { day: "Thu", subject: "Introduction to Computing", room: "labD", start: "08:30", end: "10:00" },
+  { day: "Thu", subject: "Computer Programming", room: "LabF", start: "10:00", end: "12:30" },
+  { day: "Thu", subject: "Understanding the Self", room: "B201", start: "13:00", end: "15:00" },
+  { day: "Thu", subject: "Purposive Communication", room: "B403", start: "16:00", end: "18:00" },
+
+  { day: "Fri", subject: "Philippine Popular Culture", room: "B302", start: "07:00", end: "08:00" },
+  { day: "Fri", subject: "The Contemporary World", room: "B401", start: "08:00", end: "10:00" },
+  { day: "Fri", subject: "National Service Training Program", room: "B201", start: "11:00", end: "13:00" },
+];
+const CALENDAR_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri"];
+const CALENDAR_START_MIN = 6 * 60 + 30; // 6:30 AM
+const CALENDAR_END_MIN = 19 * 60; // 7:00 PM
+const CALENDAR_SLOT_MIN = 30;
+
+function timeToMinutes(t) {
+  const [h, m] = t.split(":").map(Number);
+  return h * 60 + m;
+}
+
+function formatMinutesClock(mins) {
+  let h = Math.floor(mins / 60);
+  const m = mins % 60;
+  const ampm = h >= 12 ? "PM" : "AM";
+  h = h % 12;
+  if (h === 0) h = 12;
+  return `${h}:${String(m).padStart(2, "0")} ${ampm}`;
+}
+
+function renderCalendar() {
+  const grid = $("#calendarGrid");
+  grid.innerHTML = "";
+
+  const totalSlots = (CALENDAR_END_MIN - CALENDAR_START_MIN) / CALENDAR_SLOT_MIN;
+  grid.style.gridTemplateRows = `34px repeat(${totalSlots}, 26px)`;
+
+  const corner = document.createElement("div");
+  corner.className = "cal-corner";
+  corner.style.gridColumn = "1";
+  corner.style.gridRow = "1";
+  grid.appendChild(corner);
+
+  CALENDAR_DAYS.forEach((day, i) => {
+    const h = document.createElement("div");
+    h.className = "cal-day-header";
+    h.textContent = day;
+    h.style.gridColumn = String(i + 2);
+    h.style.gridRow = "1";
+    grid.appendChild(h);
+  });
+
+  for (let slot = 0; slot < totalSlots; slot++) {
+    const minutes = CALENDAR_START_MIN + slot * CALENDAR_SLOT_MIN;
+    const label = document.createElement("div");
+    label.className = "cal-time-label";
+    label.textContent = minutes % 60 === 0 ? formatMinutesClock(minutes) : "";
+    label.style.gridColumn = "1";
+    label.style.gridRow = String(slot + 2);
+    grid.appendChild(label);
+
+    CALENDAR_DAYS.forEach((day, i) => {
+      const cell = document.createElement("div");
+      cell.className = "cal-cell-bg";
+      cell.style.gridColumn = String(i + 2);
+      cell.style.gridRow = String(slot + 2);
+      grid.appendChild(cell);
+    });
+  }
+
+  SCHEDULE.forEach((item) => {
+    const dayIdx = CALENDAR_DAYS.indexOf(item.day);
+    if (dayIdx === -1) return;
+    const startRow = Math.round((timeToMinutes(item.start) - CALENDAR_START_MIN) / CALENDAR_SLOT_MIN) + 2;
+    const endRow = Math.round((timeToMinutes(item.end) - CALENDAR_START_MIN) / CALENDAR_SLOT_MIN) + 2;
+
+    const color = SUBJECT_COLORS[item.subject] || "#f2a33d";
+    const block = document.createElement("div");
+    block.className = "cal-block";
+    block.style.gridColumn = String(dayIdx + 2);
+    block.style.gridRow = `${startRow} / ${endRow}`;
+    block.style.background = hexToRgba(color, 0.2);
+    block.style.borderColor = color;
+    block.style.color = color;
+
+    const name = document.createElement("div");
+    name.className = "cal-block-name";
+    name.textContent = item.subject;
+    block.appendChild(name);
+
+    const meta = document.createElement("div");
+    meta.className = "cal-block-meta";
+    meta.textContent = `${item.room} · ${formatMinutesClock(timeToMinutes(item.start))}`;
+    block.appendChild(meta);
+
+    grid.appendChild(block);
+  });
+}
+
 function hexToRgba(hex, alpha) {
   const h = hex.replace("#", "");
   const r = parseInt(h.substring(0, 2), 16);
@@ -332,14 +444,24 @@ function logout() {
 // ============================================================
 
 let currentView = "subjects";
+let calendarRendered = false;
+
+const VIEW_META = {
+  subjects: { title: "Subjects", index: 0 },
+  recap: { title: "Recap", index: 1 },
+  calendar: { title: "Calendar", index: 2 },
+  chats: { title: "Chats", index: 3 },
+};
 
 function switchView(view, { animateIcon = true } = {}) {
   if (view === currentView) return;
   currentView = view;
 
   $("#subjectsView").classList.toggle("hidden-view", view !== "subjects");
+  $("#recapView").classList.toggle("hidden-view", view !== "recap");
+  $("#calendarView").classList.toggle("hidden-view", view !== "calendar");
   $("#chatsView").classList.toggle("hidden-view", view !== "chats");
-  $("#viewTitle").textContent = view === "subjects" ? "Subjects" : "Chats";
+  $("#viewTitle").textContent = VIEW_META[view].title;
 
   $$(".nav-btn").forEach((btn) => {
     const active = btn.dataset.view === view;
@@ -352,9 +474,13 @@ function switchView(view, { animateIcon = true } = {}) {
   });
 
   const indicator = $("#navIndicator");
-  indicator.style.transform = view === "subjects" ? "translateX(0)" : "translateX(100%)";
+  indicator.style.transform = `translateX(${VIEW_META[view].index * 100}%)`;
 
   if (view === "chats") scrollChatToBottom(true);
+  if (view === "calendar" && !calendarRendered) {
+    renderCalendar();
+    calendarRendered = true;
+  }
 }
 
 function initNav() {
@@ -398,7 +524,15 @@ function renderSubjects() {
   }
   empty.hidden = true;
 
-  subjectsCache.forEach((subj) => {
+  // not-yet-done (still glowing) cards float to the top; within each
+  // group the existing most-recently-updated-first order is kept
+  const ordered = [...subjectsCache].sort((a, b) => {
+    const aDone = iAmDoneWith(a.id) ? 1 : 0;
+    const bDone = iAmDoneWith(b.id) ? 1 : 0;
+    return aDone - bDone;
+  });
+
+  ordered.forEach((subj) => {
     const color = SUBJECT_COLORS[subj.subject_name] || "#f2a33d";
 
     const card = document.createElement("button");
@@ -725,6 +859,199 @@ function initSubjects() {
     reader.readAsDataURL(file);
   });
   $("#subjectImageRemoveBtn").addEventListener("click", resetSubjectImagePicker);
+}
+
+// ============================================================
+// Recap (Lessons) — mirrors the Subjects add/view pattern, just
+// simpler: no due date, no photo, no mark-as-done.
+// ============================================================
+
+let lessonsCache = [];
+
+function populateRecapSubjectOptions() {
+  const select = $("#recapSubjectInput");
+  SUBJECT_LIST.forEach((name) => {
+    const opt = document.createElement("option");
+    opt.value = name;
+    opt.textContent = name;
+    select.appendChild(opt);
+  });
+}
+
+function renderLessons() {
+  const grid = $("#recapGrid");
+  const empty = $("#recapEmpty");
+  grid.innerHTML = "";
+
+  if (lessonsCache.length === 0) {
+    empty.hidden = false;
+    return;
+  }
+  empty.hidden = true;
+
+  lessonsCache.forEach((lesson) => {
+    const color = SUBJECT_COLORS[lesson.subject_name] || "#f2a33d";
+
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "subject-card";
+    card.style.setProperty("--card-accent", color);
+
+    const subjTag = document.createElement("div");
+    subjTag.className = "subject-card-due";
+    subjTag.style.color = color;
+    subjTag.textContent = lesson.subject_name;
+    card.appendChild(subjTag);
+
+    const name = document.createElement("div");
+    name.className = "subject-card-name";
+    name.textContent = lesson.title;
+    card.appendChild(name);
+
+    const content = document.createElement("div");
+    content.className = "subject-card-content";
+    content.textContent = lesson.content;
+    card.appendChild(content);
+
+    const meta = document.createElement("div");
+    meta.className = "subject-card-meta";
+    const author = document.createElement("span");
+    author.className = "subject-card-author";
+    author.textContent = lesson.author_name;
+    const time = document.createElement("span");
+    time.textContent = timeAgo(lesson.updated_at || lesson.created_at);
+    meta.append(author, time);
+    card.appendChild(meta);
+
+    card.dataset.id = lesson.id;
+    card.addEventListener("click", () => openViewRecapModal(lesson));
+    grid.appendChild(card);
+  });
+}
+
+async function fetchLessons() {
+  const { data, error } = await sb
+    .from("lessons")
+    .select("*")
+    .order("updated_at", { ascending: false });
+
+  if (error) {
+    console.error(error);
+    showToast("Hindi ma-load ang recap.", "error");
+    return;
+  }
+  lessonsCache = data || [];
+  renderLessons();
+}
+
+function openAddRecapModal() {
+  $("#recapModalTitle").textContent = "Add recap";
+  $("#recapModalTitle").style.color = "";
+  $("#recapForm").hidden = false;
+  $("#recapViewBody").hidden = true;
+  $("#recapForm").reset();
+  $("#recapContentInput").style.height = "auto";
+  $("#recapModal").hidden = false;
+  refreshIcons();
+}
+
+function openViewRecapModal(lesson) {
+  const color = SUBJECT_COLORS[lesson.subject_name] || "";
+  $("#recapModalTitle").textContent = lesson.title;
+  $("#recapModalTitle").style.color = color;
+  $("#recapForm").hidden = true;
+  $("#recapViewBody").hidden = false;
+  $("#recapViewContent").textContent = lesson.content;
+
+  const meta = $("#recapViewMeta");
+  meta.innerHTML = "";
+  const subj = document.createElement("span");
+  subj.textContent = lesson.subject_name;
+  subj.style.color = color;
+  subj.style.fontWeight = "700";
+  const author = document.createElement("span");
+  author.textContent = lesson.author_name;
+  meta.append(subj, author);
+
+  const deleteBtn = $("#deleteRecapBtn");
+  const canDelete = (currentSession?.position || "").trim().toLowerCase() === "developer";
+  deleteBtn.hidden = !canDelete;
+  deleteBtn.dataset.id = lesson.id;
+
+  $("#recapModal").hidden = false;
+  refreshIcons();
+}
+
+function closeRecapModal() {
+  $("#recapModal").hidden = true;
+  $("#recapModalTitle").style.color = "";
+}
+
+async function handleRecapSubmit(e) {
+  e.preventDefault();
+  const subject_name = $("#recapSubjectInput").value;
+  const title = $("#recapTitleInput").value.trim();
+  const content = $("#recapContentInput").value.trim();
+  if (!subject_name || !title || !content) return;
+
+  const saveBtn = e.target.querySelector('button[type="submit"]');
+  saveBtn.disabled = true;
+
+  const { error } = await sb.from("lessons").insert({
+    subject_name,
+    title,
+    content,
+    author_name: currentSession.name,
+  });
+
+  saveBtn.disabled = false;
+
+  if (error) {
+    console.error(error);
+    showToast("Hindi na-save. Subukan ulit.", "error");
+    return;
+  }
+  burstConfetti(saveBtn);
+  showToast("Naidagdag na.");
+  closeRecapModal();
+  fetchLessons();
+}
+
+async function handleDeleteRecap() {
+  const id = $("#deleteRecapBtn").dataset.id;
+  if (!id) return;
+  const ok = await showConfirm("Sigurado ka bang tatanggalin ito?");
+  if (!ok) return;
+
+  const { error } = await sb.from("lessons").delete().eq("id", id);
+  if (error) {
+    console.error(error);
+    showToast("Hindi natanggal.", "error");
+    return;
+  }
+  showToast("Tinanggal na.");
+  closeRecapModal();
+  fetchLessons();
+}
+
+function initRecap() {
+  populateRecapSubjectOptions();
+
+  $("#addRecapBtn").addEventListener("click", openAddRecapModal);
+  $("#closeRecapModalBtn").addEventListener("click", closeRecapModal);
+  $("#cancelRecapBtn").addEventListener("click", closeRecapModal);
+  $("#closeRecapViewBtn").addEventListener("click", closeRecapModal);
+  $("#recapModal").addEventListener("click", (e) => {
+    if (e.target.id === "recapModal") closeRecapModal();
+  });
+  $("#recapForm").addEventListener("submit", handleRecapSubmit);
+  $("#deleteRecapBtn").addEventListener("click", handleDeleteRecap);
+
+  const contentInput = $("#recapContentInput");
+  contentInput.addEventListener("input", () => {
+    contentInput.style.height = "auto";
+    contentInput.style.height = `${Math.min(contentInput.scrollHeight, 420)}px`;
+  });
 }
 
 // ============================================================
@@ -1268,6 +1595,7 @@ let subjectsChannel = null;
 let chatChannel = null;
 let profileChannel = null;
 let subjectChecksChannel = null;
+let lessonsChannel = null;
 
 function setupRealtime(session) {
   subjectsChannel = sb
@@ -1281,6 +1609,13 @@ function setupRealtime(session) {
     .channel("public:subject_checks")
     .on("postgres_changes", { event: "*", schema: "public", table: "subject_checks" }, () => {
       fetchSubjectChecks();
+    })
+    .subscribe();
+
+  lessonsChannel = sb
+    .channel("public:lessons")
+    .on("postgres_changes", { event: "*", schema: "public", table: "lessons" }, () => {
+      fetchLessons();
     })
     .subscribe();
 
@@ -1320,10 +1655,12 @@ function teardownRealtime() {
   if (chatChannel) sb.removeChannel(chatChannel);
   if (profileChannel) sb.removeChannel(profileChannel);
   if (subjectChecksChannel) sb.removeChannel(subjectChecksChannel);
+  if (lessonsChannel) sb.removeChannel(lessonsChannel);
   subjectsChannel = null;
   chatChannel = null;
   profileChannel = null;
   subjectChecksChannel = null;
+  lessonsChannel = null;
 }
 
 // ============================================================
@@ -1348,6 +1685,7 @@ async function enterApp(rawSession) {
 
   fetchSubjects();
   fetchSubjectChecks();
+  fetchLessons();
   fetchChat(session);
   setupRealtime(session);
   refreshIcons();
@@ -1358,6 +1696,7 @@ function init() {
   initGate();
   initNav();
   initSubjects();
+  initRecap();
   initConfirmModal();
 
   $("#themeToggle").addEventListener("click", (e) => toggleTheme(e, $("#themeToggle")));
