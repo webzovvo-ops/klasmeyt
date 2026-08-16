@@ -15,7 +15,18 @@ const APP_SHELL = [
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_VERSION).then((cache) => cache.addAll(APP_SHELL))
+    caches.open(CACHE_VERSION).then((cache) =>
+      // Individually settled, not cache.addAll() — addAll() is all-or-nothing,
+      // so a single missing file (e.g. an icon not yet in the repo) used to
+      // silently fail the WHOLE service worker install. That meant no active
+      // service worker ever registered, which is exactly why Chrome only
+      // offered "Create shortcut" instead of a real "Install app" prompt.
+      Promise.allSettled(
+        APP_SHELL.map((url) =>
+          cache.add(url).catch((err) => console.warn("[SW] precache failed:", url, err))
+        )
+      )
+    )
   );
   self.skipWaiting();
 });

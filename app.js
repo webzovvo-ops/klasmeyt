@@ -79,9 +79,24 @@ function formatMinutesClock(mins) {
   return `${h}:${String(m).padStart(2, "0")} ${ampm}`;
 }
 
+/** Compact "6:30" style, no AM/PM — matches the time labels in the actual
+ *  schedule photo, used for every half-hour row in the calendar. */
+function formatMinutesShort(mins) {
+  let h = Math.floor(mins / 60);
+  const m = mins % 60;
+  h = h % 12;
+  if (h === 0) h = 12;
+  return `${h}:${String(m).padStart(2, "0")}`;
+}
+
+// JS Date#getDay() (0=Sun..6=Sat) -> index into CALENDAR_DAYS (Mon..Fri)
+const JS_DAY_TO_CALENDAR_INDEX = { 1: 0, 2: 1, 3: 2, 4: 3, 5: 4 };
+
 function renderCalendar() {
   const grid = $("#calendarGrid");
   grid.innerHTML = "";
+
+  const todayColIdx = JS_DAY_TO_CALENDAR_INDEX[new Date().getDay()];
 
   const totalSlots = (CALENDAR_END_MIN - CALENDAR_START_MIN) / CALENDAR_SLOT_MIN;
   grid.style.gridTemplateRows = `34px repeat(${totalSlots}, 26px)`;
@@ -94,7 +109,7 @@ function renderCalendar() {
 
   CALENDAR_DAYS.forEach((day, i) => {
     const h = document.createElement("div");
-    h.className = "cal-day-header";
+    h.className = "cal-day-header" + (i === todayColIdx ? " today" : "");
     h.textContent = day;
     h.style.gridColumn = String(i + 2);
     h.style.gridRow = "1";
@@ -105,14 +120,14 @@ function renderCalendar() {
     const minutes = CALENDAR_START_MIN + slot * CALENDAR_SLOT_MIN;
     const label = document.createElement("div");
     label.className = "cal-time-label";
-    label.textContent = minutes % 60 === 0 ? formatMinutesClock(minutes) : "";
+    label.textContent = formatMinutesShort(minutes);
     label.style.gridColumn = "1";
     label.style.gridRow = String(slot + 2);
     grid.appendChild(label);
 
     CALENDAR_DAYS.forEach((day, i) => {
       const cell = document.createElement("div");
-      cell.className = "cal-cell-bg";
+      cell.className = "cal-cell-bg" + (i === todayColIdx ? " today" : "");
       cell.style.gridColumn = String(i + 2);
       cell.style.gridRow = String(slot + 2);
       grid.appendChild(cell);
@@ -586,6 +601,28 @@ function renderSubjects() {
   });
 }
 
+const OFFLINE_KEYS = {
+  subjects: "klase_offline_subjects",
+  checks: "klase_offline_checks",
+};
+
+function readOfflineCache(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch (err) {
+    return null;
+  }
+}
+
+function writeOfflineCache(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (err) {
+    // storage full/unavailable — non-critical, offline viewing just won't work
+  }
+}
+
 async function fetchSubjects() {
   // Fetch everything and filter expiry in JS rather than as a server-side
   // filter — a filter referencing expires_at would hard-fail the whole
@@ -597,33 +634,54 @@ async function fetchSubjects() {
     .select("*")
     .order("updated_at", { ascending: false });
 
+  const now = Date.now();
+
   if (error) {
     console.error(error);
+    // offline / network error — fall back to whatever was last saved so
+    // assignments still open with no connection. Only chat needs live data.
+    const cached = readOfflineCache(OFFLINE_KEYS.subjects);
+    if (cached) {
+      subjectsCache = cached.filter((s) => !s.expires_at || new Date(s.expires_at).getTime() > now);
+      renderSubjects();
+      showToast("Offline — huling na-save na data ito.", "error");
+      return;
+    }
     showToast("Hindi ma-load ang subjects.", "error");
     return;
   }
-  const now = Date.now();
-  subjectsCache = (data || []).filter(
-    (s) => !s.expires_at || new Date(s.expires_at).getTime() > now
-  );
+
+  subjectsCache = (data || []).filter((s) => !s.expires_at || new Date(s.expires_at).getTime() > now);
   renderSubjects();
+  writeOfflineCache(OFFLINE_KEYS.subjects, data || []);
+}
+
+function rebuildChecksCache(rows) {
+  const map = new Map();
+  rows.forEach((row) => {
+    const list = map.get(row.subject_id) || [];
+    list.push({ userId: row.user_id, userName: row.user_name });
+    map.set(row.subject_id, list);
+  });
+  subjectChecksCache = map;
 }
 
 async function fetchSubjectChecks() {
   const { data, error } = await sb.from("subject_checks").select("*");
   if (error) {
     console.error(error);
+    const cached = readOfflineCache(OFFLINE_KEYS.checks);
+    if (cached) {
+      rebuildChecksCache(cached);
+      renderSubjects();
+      if (currentlyViewedSubjectId) renderDoneSection(currentlyViewedSubjectId);
+    }
     return;
   }
-  const map = new Map();
-  (data || []).forEach((row) => {
-    const list = map.get(row.subject_id) || [];
-    list.push({ userId: row.user_id, userName: row.user_name });
-    map.set(row.subject_id, list);
-  });
-  subjectChecksCache = map;
+  rebuildChecksCache(data || []);
   renderSubjects();
   if (currentlyViewedSubjectId) renderDoneSection(currentlyViewedSubjectId);
+  writeOfflineCache(OFFLINE_KEYS.checks, data || []);
 }
 
 function renderDoneSection(subjectId) {
@@ -696,8 +754,8 @@ async function handleToggleDone() {
 
 function resetSubjectImagePicker() {
   pendingSubjectImageFile = null;
-  $("#subjectImagePreviewWrap").hidden = true;
-  $("#subjectImagePreview").src = "";
+  $("#subjectImageFileRow").hidden = true;
+  $("#subjectImageFileName").textContent = "";
 }
 
 function openAddSubjectModal() {
@@ -851,12 +909,9 @@ function initSubjects() {
     e.target.value = "";
     if (!file) return;
     pendingSubjectImageFile = file;
-    const reader = new FileReader();
-    reader.onload = () => {
-      $("#subjectImagePreview").src = reader.result;
-      $("#subjectImagePreviewWrap").hidden = false;
-    };
-    reader.readAsDataURL(file);
+    $("#subjectImageFileName").textContent = file.name;
+    $("#subjectImageFileRow").hidden = false;
+    refreshIcons();
   });
   $("#subjectImageRemoveBtn").addEventListener("click", resetSubjectImagePicker);
 }

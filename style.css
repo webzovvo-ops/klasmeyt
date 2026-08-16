@@ -981,33 +981,37 @@ select {
   flex-direction: column;
   gap: 10px;
 }
-.subject-image-preview-wrap {
-  position: relative;
-  width: 140px;
-  height: 140px;
+.subject-image-file-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 8px 10px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  overflow: hidden;
-  flex-shrink: 0;
   animation: cardIn 0.3s var(--ease-pop) both;
 }
-.subject-image-preview {
-  width: 100%;
-  height: 100%;
-  display: block;
-  object-fit: cover;
+.subject-image-file-row > svg:first-child {
+  width: 16px;
+  height: 16px;
+  color: var(--text-muted);
+  flex-shrink: 0;
 }
-.subject-image-preview-wrap .icon-btn {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 26px;
-  height: 26px;
-  background: rgba(10, 10, 12, 0.65);
-  color: #fff;
-  backdrop-filter: blur(2px);
+.subject-image-filename {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.84rem;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.subject-image-preview-wrap .icon-btn svg { width: 14px; height: 14px; }
-.subject-image-preview-wrap .icon-btn:hover { background: rgba(10, 10, 12, 0.85); }
+.subject-image-file-row .icon-btn {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+}
 
 .modal-actions {
   display: flex;
@@ -1355,7 +1359,7 @@ select {
 
 .calendar-grid {
   display: grid;
-  grid-template-columns: 50px repeat(5, minmax(62px, 1fr));
+  grid-template-columns: 42px repeat(5, minmax(62px, 1fr));
   gap: 1px;
   background: var(--border);
   border: 1px solid var(--border);
@@ -1380,17 +1384,22 @@ select {
   font-family: var(--font-display);
   color: var(--text-muted);
   padding: 7px 2px;
+  transition: background-color 0.25s var(--ease), color 0.25s var(--ease);
+}
+.cal-day-header.today {
+  background: var(--amber);
+  color: #1a1103;
 }
 
 .cal-time-label {
   background: var(--bg-elevated);
-  font-size: 0.6rem;
+  font-size: 0.56rem;
   color: var(--text-faint);
   font-family: var(--font-mono);
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: flex-end;
-  padding: 2px 6px 0 0;
+  padding: 0 5px 0 0;
   position: sticky;
   left: 0;
   z-index: 1;
@@ -1398,6 +1407,7 @@ select {
 }
 
 .cal-cell-bg { background: var(--surface); }
+.cal-cell-bg.today { background: var(--amber-soft); }
 
 .cal-block {
   margin: 1px;
