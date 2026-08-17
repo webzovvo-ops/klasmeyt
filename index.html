@@ -118,7 +118,7 @@
     <!-- ---------- RECAP VIEW ---------- -->
     <section id="recapView" class="view hidden-view">
       <div class="view-toolbar">
-        <p class="view-hint">Lesson recaps for review.</p>
+        <p class="view-hint">Lesson recaps para sa review.</p>
         <button id="addRecapBtn" class="btn btn-primary btn-sm">
           <i data-lucide="plus"></i>
           <span>Add</span>
@@ -128,7 +128,7 @@
       <div id="recapEmpty" class="empty-state" hidden>
         <i data-lucide="graduation-cap"></i>
         <p>Wala pang recap.</p>
-        <p class="empty-sub">Wala pang recap pre lagay ka?</p>
+        <p class="empty-sub">Pindutin ang "Add" para maglagay ng una.</p>
       </div>
 
       <div id="recapGrid" class="subjects-grid"></div>
@@ -199,7 +199,7 @@
       <label class="field">
         <span class="field-label">Subject</span>
         <select id="subjectNameInput" required>
-          <option value="" disabled selected>choose subject</option>
+          <option value="" disabled selected>choose sub</option>
         </select>
       </label>
 
@@ -284,7 +284,7 @@
       <label class="field">
         <span class="field-label">Subject</span>
         <select id="recapSubjectInput" required>
-          <option value="" disabled selected>choose sub</option>
+          <option value="" disabled selected>Piliin ang subject</option>
         </select>
       </label>
 
@@ -375,7 +375,10 @@
       <section class="settings-section">
         <span class="field-label">About</span>
         <p class="about-text">Jesus loves you guys</p>
-        <div id="aboutCredits" class="about-credits"></div>
+        <button type="button" id="openCircleBtn" class="btn btn-ghost btn-full">
+          <i data-lucide="users-round"></i>
+          <span>Circle</span>
+        </button>
       </section>
 
       <section class="settings-section">
@@ -400,6 +403,16 @@
       <button type="button" id="confirmCancelBtn" class="btn btn-ghost">Cancel</button>
       <button type="button" id="confirmOkBtn" class="btn btn-primary">Yes</button>
     </div>
+  </div>
+</div>
+
+<!-- ============== CIRCLE (full-screen friend circle) ============== -->
+<div id="circleOverlay" class="circle-overlay" hidden>
+  <button type="button" id="closeCircleBtn" class="icon-btn ghost circle-close" aria-label="Close">
+    <i data-lucide="x"></i>
+  </button>
+  <div class="circle-stage">
+    <div id="circleRing" class="circle-ring"></div>
   </div>
 </div>
 

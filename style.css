@@ -1544,3 +1544,84 @@ select {
   color: var(--amber);
   text-transform: capitalize;
 }
+
+/* ==========================================================
+   Circle — full-screen "circle of friends" view of everyone
+   who has logged in, developers pinned to the top
+   ========================================================== */
+.circle-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: overlayIn 0.3s var(--ease) both;
+}
+.circle-close {
+  position: absolute;
+  top: calc(16px + env(safe-area-inset-top));
+  right: 16px;
+  z-index: 2;
+}
+.circle-stage {
+  width: min(90vw, 68vh, 460px);
+  aspect-ratio: 1;
+  position: relative;
+}
+.circle-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1px dashed var(--border);
+}
+.circle-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-faint);
+  font-size: 0.86rem;
+  text-align: center;
+  padding: 20px;
+}
+
+.circle-plate {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  animation: cardIn 0.5s var(--ease-pop) both;
+}
+.circle-plate img {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--border);
+  background: var(--surface-2);
+  box-shadow: var(--shadow-md);
+}
+.circle-plate.dev img {
+  width: 70px;
+  height: 70px;
+  border-color: var(--amber);
+  box-shadow: 0 0 0 4px var(--amber-soft), var(--shadow-lg);
+}
+.circle-plate-name {
+  font-size: 0.62rem;
+  color: var(--text-muted);
+  max-width: 70px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+}
+.circle-plate.dev .circle-plate-name {
+  color: var(--amber);
+  font-weight: 700;
+}
