@@ -100,10 +100,15 @@
     <section id="subjectsView" class="view">
       <div class="view-toolbar">
         <p class="view-hint">Subjects at assignment notes dito boi</p>
-        <button id="addSubjectBtn" class="btn btn-primary btn-sm">
-          <i data-lucide="plus"></i>
-          <span>Add</span>
-        </button>
+        <div class="view-toolbar-actions">
+          <button type="button" id="compactToggleBtn" class="icon-btn ghost" aria-label="Compact view" aria-pressed="false">
+            <i data-lucide="list"></i>
+          </button>
+          <button id="addSubjectBtn" class="btn btn-primary btn-sm">
+            <i data-lucide="plus"></i>
+            <span>Add</span>
+          </button>
+        </div>
       </div>
 
       <div id="subjectsEmpty" class="empty-state" hidden>

@@ -196,6 +196,7 @@ const LS_KEYS = {
   authed: "klase_authed",
   theme: "klase_theme",
   installDismissed: "klase_install_banner_dismissed",
+  compactSubjects: "klase_compact_subjects",
 };
 
 // the live, Supabase-synced identity of whoever is using the app right now —
@@ -394,6 +395,24 @@ function toggleTheme(clickEvent, btn) {
 
   applyTheme(next);
   localStorage.setItem(LS_KEYS.theme, next);
+}
+
+/** Compact subjects view — cards shrink to just the subject name.
+ *  Same on/off, remember-it-in-localStorage shape as the theme toggle. */
+function applyCompactSubjects(isCompact) {
+  $("#subjectsGrid").classList.toggle("compact", isCompact);
+  $("#compactToggleBtn").setAttribute("aria-pressed", String(isCompact));
+}
+
+function initCompactSubjects() {
+  const saved = localStorage.getItem(LS_KEYS.compactSubjects) === "1";
+  applyCompactSubjects(saved);
+}
+
+function toggleCompactSubjects() {
+  const isCompact = !$("#subjectsGrid").classList.contains("compact");
+  applyCompactSubjects(isCompact);
+  localStorage.setItem(LS_KEYS.compactSubjects, isCompact ? "1" : "0");
 }
 
 // ============================================================
@@ -906,8 +925,10 @@ async function handleDeleteSubject() {
 
 function initSubjects() {
   populateSubjectOptions();
+  initCompactSubjects();
 
   $("#addSubjectBtn").addEventListener("click", openAddSubjectModal);
+  $("#compactToggleBtn").addEventListener("click", toggleCompactSubjects);
   $("#closeModalBtn").addEventListener("click", closeSubjectModal);
   $("#cancelSubjectBtn").addEventListener("click", closeSubjectModal);
   $("#closeViewBtn").addEventListener("click", closeSubjectModal);
