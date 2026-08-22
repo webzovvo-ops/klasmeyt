@@ -146,7 +146,7 @@ function renderCalendar() {
 
     CALENDAR_DAYS.forEach((day, i) => {
       const cell = document.createElement("div");
-      cell.className = "cal-cell-bg" + (i === todayColIdx ? " today" : "");
+      cell.className = "cal-cell-bg";
       cell.style.gridColumn = String(i + 2);
       cell.style.gridRow = String(slot + 2);
       grid.appendChild(cell);
@@ -567,78 +567,105 @@ function iAmDoneWith(subjectId) {
   return !!(list && currentSession && list.some((c) => c.userId === currentSession.userId));
 }
 
+function isPastDue(subj) {
+  return Boolean(subj.expires_at) && new Date(subj.expires_at).getTime() <= Date.now();
+}
+
+function buildSubjectCard(subj, { historic = false } = {}) {
+  const color = SUBJECT_COLORS[subj.subject_name] || "#f2a33d";
+  const glowColor = NEON_GLOW_COLORS[subj.subject_name] || color;
+
+  const card = document.createElement("button");
+  card.type = "button";
+  // history cards skip the urgent neon-pulse treatment, done or not —
+  // it's the deadline that's stale, not something to still rush toward
+  card.className = "subject-card" + (!historic && !iAmDoneWith(subj.id) ? " not-done" : "");
+  card.style.setProperty("--card-accent", color);
+  card.style.setProperty("--card-glow", hexToRgba(glowColor, 0.65));
+
+  const name = document.createElement("div");
+  name.className = "subject-card-name";
+  name.textContent = subj.subject_name;
+  name.style.color = color;
+  card.appendChild(name);
+
+  if (subj.image_url) {
+    const thumb = document.createElement("img");
+    thumb.className = "subject-card-thumb";
+    thumb.src = subj.image_url;
+    thumb.alt = "";
+    thumb.loading = "lazy";
+    card.appendChild(thumb);
+  }
+
+  const content = document.createElement("div");
+  content.className = "subject-card-content";
+  content.textContent = subj.content;
+  card.appendChild(content);
+
+  const meta = document.createElement("div");
+  meta.className = "subject-card-meta";
+  const author = document.createElement("span");
+  author.className = "subject-card-author";
+  author.textContent = subj.author_name;
+  meta.appendChild(author);
+
+  if (subj.expires_at) {
+    const due = document.createElement("span");
+    due.className = "subject-card-due";
+    due.textContent = "Due " + new Date(subj.expires_at).toLocaleDateString("en-PH", { month: "short", day: "numeric" });
+    meta.appendChild(due);
+  } else {
+    const time = document.createElement("span");
+    time.textContent = timeAgo(subj.updated_at || subj.created_at);
+    meta.appendChild(time);
+  }
+  card.appendChild(meta);
+
+  card.dataset.id = subj.id;
+  card.addEventListener("click", () => openViewSubjectModal(subj));
+  return card;
+}
+
 function renderSubjects() {
   const grid = $("#subjectsGrid");
   const empty = $("#subjectsEmpty");
+  const historySection = $("#historySection");
+  const historyGrid = $("#subjectsHistoryGrid");
+  const historyCount = $("#historyCount");
   grid.innerHTML = "";
+  historyGrid.innerHTML = "";
 
-  if (subjectsCache.length === 0) {
+  const active = subjectsCache.filter((s) => !isPastDue(s));
+  const past = subjectsCache.filter(isPastDue);
+
+  if (active.length === 0) {
     empty.hidden = false;
-    return;
+  } else {
+    empty.hidden = true;
+    // not-yet-done (still glowing) cards float to the top; within each
+    // group the existing most-recently-updated-first order is kept
+    const ordered = [...active].sort((a, b) => {
+      const aDone = iAmDoneWith(a.id) ? 1 : 0;
+      const bDone = iAmDoneWith(b.id) ? 1 : 0;
+      return aDone - bDone;
+    });
+    ordered.forEach((subj) => grid.appendChild(buildSubjectCard(subj)));
   }
-  empty.hidden = true;
 
-  // not-yet-done (still glowing) cards float to the top; within each
-  // group the existing most-recently-updated-first order is kept
-  const ordered = [...subjectsCache].sort((a, b) => {
-    const aDone = iAmDoneWith(a.id) ? 1 : 0;
-    const bDone = iAmDoneWith(b.id) ? 1 : 0;
-    return aDone - bDone;
-  });
-
-  ordered.forEach((subj) => {
-    const color = SUBJECT_COLORS[subj.subject_name] || "#f2a33d";
-    const glowColor = NEON_GLOW_COLORS[subj.subject_name] || color;
-
-    const card = document.createElement("button");
-    card.type = "button";
-    card.className = "subject-card" + (iAmDoneWith(subj.id) ? "" : " not-done");
-    card.style.setProperty("--card-accent", color);
-    card.style.setProperty("--card-glow", hexToRgba(glowColor, 0.65));
-
-    const name = document.createElement("div");
-    name.className = "subject-card-name";
-    name.textContent = subj.subject_name;
-    name.style.color = color;
-    card.appendChild(name);
-
-    if (subj.image_url) {
-      const thumb = document.createElement("img");
-      thumb.className = "subject-card-thumb";
-      thumb.src = subj.image_url;
-      thumb.alt = "";
-      thumb.loading = "lazy";
-      card.appendChild(thumb);
-    }
-
-    const content = document.createElement("div");
-    content.className = "subject-card-content";
-    content.textContent = subj.content;
-    card.appendChild(content);
-
-    const meta = document.createElement("div");
-    meta.className = "subject-card-meta";
-    const author = document.createElement("span");
-    author.className = "subject-card-author";
-    author.textContent = subj.author_name;
-    meta.appendChild(author);
-
-    if (subj.expires_at) {
-      const due = document.createElement("span");
-      due.className = "subject-card-due";
-      due.textContent = "Due " + new Date(subj.expires_at).toLocaleDateString("en-PH", { month: "short", day: "numeric" });
-      meta.appendChild(due);
-    } else {
-      const time = document.createElement("span");
-      time.textContent = timeAgo(subj.updated_at || subj.created_at);
-      meta.appendChild(time);
-    }
-    card.appendChild(meta);
-
-    card.dataset.id = subj.id;
-    card.addEventListener("click", () => openViewSubjectModal(subj));
-    grid.appendChild(card);
-  });
+  // History: past-due items, never auto-deleted from Supabase — just
+  // moved out of the live grid. Most-recently-expired first. Ray deletes
+  // the row himself in Supabase whenever he actually wants it gone.
+  if (past.length === 0) {
+    historySection.hidden = true;
+  } else {
+    historySection.hidden = false;
+    historyCount.textContent = String(past.length);
+    const orderedPast = [...past].sort(
+      (a, b) => new Date(b.expires_at).getTime() - new Date(a.expires_at).getTime()
+    );
+    orderedPast.forEach((subj) => historyGrid.appendChild(buildSubjectCard(subj, { historic: true })));
+  }
 }
 
 const OFFLINE_KEYS = {
@@ -664,17 +691,14 @@ function writeOfflineCache(key, value) {
 }
 
 async function fetchSubjects() {
-  // Fetch everything and filter expiry in JS rather than as a server-side
-  // filter — a filter referencing expires_at would hard-fail the whole
-  // query on any project that hasn't run the latest schema.sql yet. This
-  // way the list still loads even on an older schema; it just won't hide
-  // expired notes until the column exists.
+  // Fetch everything — no expiry filter here anymore. Past-due items used
+  // to be dropped from subjectsCache entirely, which looked like an
+  // auto-delete. Now renderSubjects() buckets them into History instead;
+  // nothing gets removed from Supabase unless Ray does it himself.
   const { data, error } = await sb
     .from("subjects")
     .select("*")
     .order("updated_at", { ascending: false });
-
-  const now = Date.now();
 
   if (error) {
     console.error(error);
@@ -682,7 +706,7 @@ async function fetchSubjects() {
     // assignments still open with no connection. Only chat needs live data.
     const cached = readOfflineCache(OFFLINE_KEYS.subjects);
     if (cached) {
-      subjectsCache = cached.filter((s) => !s.expires_at || new Date(s.expires_at).getTime() > now);
+      subjectsCache = cached;
       renderSubjects();
       showToast("Offline — huling na-save na data ito.", "error");
       return;
@@ -691,7 +715,7 @@ async function fetchSubjects() {
     return;
   }
 
-  subjectsCache = (data || []).filter((s) => !s.expires_at || new Date(s.expires_at).getTime() > now);
+  subjectsCache = data || [];
   renderSubjects();
   writeOfflineCache(OFFLINE_KEYS.subjects, data || []);
 }
@@ -929,6 +953,12 @@ function initSubjects() {
 
   $("#addSubjectBtn").addEventListener("click", openAddSubjectModal);
   $("#compactToggleBtn").addEventListener("click", toggleCompactSubjects);
+  $("#historyToggleBtn").addEventListener("click", () => {
+    const btn = $("#historyToggleBtn");
+    const isOpen = btn.getAttribute("aria-expanded") === "true";
+    btn.setAttribute("aria-expanded", String(!isOpen));
+    $("#subjectsHistoryGrid").hidden = isOpen;
+  });
   $("#closeModalBtn").addEventListener("click", closeSubjectModal);
   $("#cancelSubjectBtn").addEventListener("click", closeSubjectModal);
   $("#closeViewBtn").addEventListener("click", closeSubjectModal);

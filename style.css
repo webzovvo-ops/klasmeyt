@@ -536,6 +536,8 @@ select {
 
 .subject-card {
   position: relative;
+  display: flex;
+  flex-direction: column;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -613,6 +615,7 @@ select {
   font-size: 1.02rem;
   margin: 10px 0 8px;
   padding-right: 8px;
+  flex-shrink: 0;
 }
 .subject-card-thumb {
   width: 100%;
@@ -622,6 +625,7 @@ select {
   margin: 2px 0 8px;
   display: block;
   background: var(--surface-2);
+  flex-shrink: 0;
 }
 .subject-card-content {
   color: var(--text-muted);
@@ -633,6 +637,8 @@ select {
   -webkit-box-orient: vertical;
   overflow: hidden;
   white-space: pre-wrap;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 .subject-card-meta {
   display: flex;
@@ -645,6 +651,7 @@ select {
   font-size: 0.74rem;
   color: var(--text-faint);
   font-family: var(--font-mono);
+  flex-shrink: 0;
 }
 .subject-card-author {
   overflow: hidden;
@@ -679,6 +686,47 @@ select {
   line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* ---- History: past-due subjects/assignments. Never auto-deleted —
+   just tucked under a collapsed disclosure instead of the live grid.
+   Deleting for real (from Supabase) is a manual, deliberate action. ---- */
+.history-section {
+  padding: 4px 18px calc(var(--nav-h) + 24px);
+}
+.history-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 14px 4px;
+  border-top: 1px dashed var(--border);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-family: var(--font-display);
+}
+.history-toggle:hover { color: var(--text); }
+.history-chevron {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  transition: transform 0.25s var(--ease-spring);
+}
+.history-toggle[aria-expanded="true"] .history-chevron { transform: rotate(90deg); }
+.history-count {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-faint);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 2px 9px;
+  border-radius: 20px;
+}
+.history-grid {
+  padding: 14px 0 0;
+  opacity: 0.7;
 }
 
 .empty-state {
@@ -1438,7 +1486,6 @@ select {
 }
 
 .cal-cell-bg { background: var(--surface); }
-.cal-cell-bg.today { background: var(--amber-soft); }
 
 .cal-block {
   margin: 1px;
